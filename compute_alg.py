@@ -3,10 +3,10 @@ import mats
 import os
 import math
 
-SUPPRESS_OUTPUT = True
+SUPPRESS_OUTPUT = False
 RUN_ROUNDS_FROM_1_TO_N = True
 LOG_OUTPUT = True
-imag_unit = np.complex(0+1j)
+imag_unit = complex(0+1j)
 
 def qudit_stab(qudits, gates, rounds):
     #initialize dict

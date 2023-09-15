@@ -1,7 +1,7 @@
 import numpy as np
 import math
 
-imag_unit = np.complex(0+1j)
+imag_unit = complex(0+1j)
 
 pauli_matrices =                                                        \
         [                                                               \
