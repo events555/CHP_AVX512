@@ -1,58 +1,46 @@
-import numpy as np
-import math
-
-imag_unit = complex(0+1j)
+from sympy import *
 
 pauli_matrices =                                                        \
         [                                                               \
-                np.array([[0+0j, 1+0j], [1+0j, 0+0j]]),                 \
-                np.array([[0,0-1j], [0+1j, 0]]),                        \
-                np.array([[1+0j, 0+0j], [0+0j, -1+0j]])                 \
+                ImmutableMatrix([[0, 1], [1, 0]]),                               \
+                ImmutableMatrix([[0,-I], [I, 0]]),                               \
+                ImmutableMatrix([[1, 0], [0, -1]])                               \
         ]
 
-
-gell_mann_matrices = \
-        [
-            np.array([ [0+0j, 1+0j, 0+0j], [1+0j, 0+0j, 0+0j], [0+0j, 0+0j, 0+0j] ]),           \
-            np.array([ [0+0j, 0-1j, 0+0j], [1+0j, 0+1j, 0+0j], [0+0j, 0+0j, 0+0j] ]),           \
-            np.array([ [1+0j, 0+0j, 0+0j], [0+0j, -1+0j, 0+0j], [0+0j, 0+0j, 0+0j] ]),          \
-            np.array([ [0+0j, 0+0j, 1+0j], [0+0j, 0+0j, 0+0j], [1+0j, 0+0j, 0+0j] ]),           \
-            np.array([ [0+0j, 0+0j, 0-1j], [0+0j, 0+0j, 0+0j], [0+1j, 0+0j, 0+0j] ]),           \
-            np.array([ [0+0j, 0+0j, 0+0j], [0+0j, 0+0j, 1+0j], [0+0j, 1+0j, 0+0j] ]),           \
-            np.array([ [0+0j, 0+0j, 0+0j], [0+0j, 0+0j, 0-1j], [0+0j, 0+1j, 0+0j] ]),           \
-            (1 / math.sqrt(3)) * np.array([ [1+0j, 0+0j, 0+0j], [0+0j, 1+0j, 0+0j], [0+0j, 0+0j, -2+0j] ]),          \
+gell_mann_matrices =                                                    \
+        [                                                               \
+            ImmutableMatrix([ [0, 1, 0], [1, 0, 0], [0, 0, 0] ]),                \
+            ImmutableMatrix([ [0,-I, 0], [I, 1, 0], [0, 0, 0] ]),                \
+            ImmutableMatrix([ [1, 0, 0], [0,-1, 0], [0, 0, 0] ]),                \
+            ImmutableMatrix([ [0, 0, 1], [0, 0, 0], [1, 0, 0] ]),                \
+            ImmutableMatrix([ [0, 0,-I], [0, 0, 0], [I, 0, 0] ]),                \
+            ImmutableMatrix([ [0, 0, 0], [0, 0, 1], [0, 1, 0] ]),                \
+            ImmutableMatrix([ [0, 0, 0], [0, 0,-I], [0,I , 0] ]),                \
+            (1 / sqrt(3)) * ImmutableMatrix([ [1+I*sqrt(3),   I*sqrt(3),   I*sqrt(3)],           \
+                                      [-I*sqrt(3),   -2+I*sqrt(3), -2*I*sqrt(3)],       \
+                                      [-I*sqrt(3), -2*I*sqrt(3),   -2+I*sqrt(3)] ]) 
         ]
-
 
 def dft_gate(d):
-    omega = np.exp((- 2 * math.pi * imag_unit) / d )
-    W = np.eye(d, d, dtype='cfloat')
-    it = np.nditer(W, flags = ['multi_index'], op_flags = ['readwrite'])
-    for k in it:
-        i = it.multi_index[0]
-        j = it.multi_index[1]
-        W[i, j] = np.power(omega, i * j) / math.sqrt(d)
-        
-    return W
-
+    omega = exp((-2 * pi * I) / d)
+    W = [[omega**(i * j) / sqrt(d) for j in range(d)] for i in range(d)]
+    return ImmutableMatrix(W)
 
 def p_gate(d):
-    omega = np.exp((- 2 * math.pi * imag_unit) / d )
-    W = np.eye(d, d, dtype='cfloat')
-    for k in range(d):
-        W[k, k] = np.power(omega, ( k * (k - 1) ) // 2)
-
-    return W
+    omega = exp((-2 * pi * I) / d)
+    W = [[omega**((k * (k - 1)) // 2) if i == j else 0 for j in range(d)] for i in range(d)]
+    return ImmutableMatrix(W)
 
 def sqrt_Z(d):
-    return np.diag( [ np.sqrt( np.exp(( -2 * math.pi * imag_unit * k) / d) ) for k in range(d) ] )
+    return ImmutableMatrix.diag(*[sqrt(exp((-2 * pi * I * k) / d)) for k in range(d)])
 
+# might need to convert to mutable matrix and then back to immutable matrix
 def sqrt_sqrt_Z(d):
-    return np.sqrt(sqrt_Z(d))
+    return sqrt(sqrt_Z(d))
 
 #implement later
 def SUM(d):
-   return np.eye(d, d, dtype='cfloat')
+    return ImmutableMatrix(d, d, lambda i, j: 1 if (i - j) % d == 0 else 0)
 
 def chp(d):
     return [SUM(d), dft_gate(d), sqrt_Z(d)]
@@ -63,7 +51,7 @@ def chp_plus_labels(d):
 
 qubit_comp_basis =                                                      \
         [                                                               \
-            np.array([[0+0j], [1+0j]]),                                 \
-            np.array([[1+0j], [0+0j]])                                  \
+            ImmutableMatrix([[0], [1]]),                                         \
+            ImmutableMatrix([[1], [0]])                                          \
         ]
 
