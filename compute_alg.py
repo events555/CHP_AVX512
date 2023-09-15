@@ -1,9 +1,6 @@
 import mats
 from sympy import *
 
-SUPPRESS_OUTPUT = False
-RUN_ROUNDS_FROM_1_TO_N = True
-LOG_OUTPUT = True
 def qudit_stab(qudits, gates, rounds):
     vectors = {q: q for q in qudits}
     for _ in range(rounds):
@@ -34,13 +31,12 @@ if __name__ == "__main__":
     
     #initialization 
     gates, symb = mats.chp_plus_labels(d)
-    print(gates[1])
     gate_seq = ["|" + str(k) + ">" for k in range(d)]
     prev_gates = 0
     stab = qudit_comp_basis(d)
     rounds_needed = 0
 
-    while rounds_needed < 2:
+    while rounds_needed < 1:
         stab = qudit_stab(stab, gates, 1)
         rounds_needed += 1
     print("Successfully terminated in " + str(rounds_needed) + " rounds.")
