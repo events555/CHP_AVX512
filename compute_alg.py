@@ -1,7 +1,7 @@
 import mats
 from sympy import *
 from sympy.physics.quantum import TensorProduct
-from sympy.physics.quantum import tensor_product_simp
+from itertools import product
 
 def qudit_stab(qudits, gates, rounds):
     # Convert qudits to numerical form and use tuple to make them hashable
@@ -42,32 +42,38 @@ def discard_global_phase_state(mat):
     return mat.as_immutable()  # Convert back to immutable matrix if needed
 
 
-def n_qudit_comp_basis(d, n):
-    single_qudit_basis = [ImmutableMatrix(d, 1, lambda i, j: 1 if i == k else 0) for k in range(d)]
-    return [TensorProduct(*basis_vector) for basis_vector in product(single_qudit_basis, repeat=n)]
-
-def two_qubit_comp_basis():
+def n_qudit_comp_basis(n):
     # Define the single-qubit basis vectors
-    single_qubit_basis = [ImmutableMatrix([[1], [0]]), ImmutableMatrix([[0], [1]])]
+    single_qubit_basis = [Matrix(d, 1, lambda i, j: 1 if i == k else 0) for k in range(d)]
+    if n == 1:
+        return single_qubit_basis
     # Generate all combinations of basis vectors
-    return [TensorProduct(b1.as_mutable(), b2.as_mutable()).as_immutable() for b1 in single_qubit_basis for b2 in single_qubit_basis]
+    return [TensorProduct(*combination) for combination in product(single_qubit_basis, repeat=n)]
+
 
 if __name__ == "__main__":
     
     #sanitize input later
     d = int(input("Dim: "))
-    # n = int(input("Num: "))
+    n = int(input("Num: "))
     #gates = mats.pauli_matrices if d == 2 else mats.chp_3[:7]
     #initialization 
-    gates = mats.chp(d, 2)
-    #stab = n_qudit_comp_basis(d,n)
-    stab = two_qubit_comp_basis()
+    gates = mats.chp(d, n)
+    stab = n_qudit_comp_basis(n)
+    for i in range(len(gates)):
+        gates[i] = gates[i].as_immutable()
+        print(gates[i])
+
+    for i in range(len(stab)):
+        stab[i] = stab[i].as_immutable()
+        print(stab[i])
+
     rounds_needed = 0
 
     while rounds_needed < 2:
         stab = qudit_stab(stab, gates, 1)
         rounds_needed += 1
-    for key, value in stab.items():
-        print(key)
+    #for key, value in stab.items():
+    #    print(key)
     print(len(stab))
     print("Successfully terminated in " + str(rounds_needed) + " rounds.")
