@@ -10,12 +10,12 @@ def qudit_stab(qudits, gates, rounds):
             for v in qudits:
                 vec = p * v
                 relPhase_vec = discard_global_phase_state(vec)
-                if relPhase_vec not in stabilzed:
-                    stabilzed[relPhase_vec] = relPhase_vec
-                    if len(stabilzed) % 10 == 0:
-                        print(str(len(stabilzed)) + " states found.")
-                        print(relPhase_vec)
-                        print(vec)
+                relPhase_vec_num = N(relPhase_vec, 15, chop=True)
+                relPhase_vec_simplify = relPhase_vec_num.applyfunc(nsimplify)
+                if relPhase_vec_simplify not in stabilzed:
+                    stabilzed[relPhase_vec_simplify] = relPhase_vec_simplify
+                    if len(stabilzed)% 80 == 0:
+                        print(relPhase_vec_simplify)
     return stabilzed
 
 def discard_global_phase_state(mat):
@@ -29,6 +29,7 @@ def discard_global_phase_state(mat):
         # Discard the global phase from all elements
         for i in range(mat.rows):
             mat[i] = mat[i] * exp(-I * global_phase)
+            mat[i].expand(Complex=True)
     return mat.as_immutable()  # Convert back to immutable matrix if needed
 
 
@@ -56,16 +57,10 @@ if __name__ == "__main__":
     for i in range(len(stab)):
         stab[i] = stab[i].as_immutable()
         #print(stab[i])
-
-    test3 = (1/4 - I/4)*exp(I*pi/4) #sqrt2/4
-    test4 = sqrt(2)/4
-    print(test3.equals(test4))
-    print(simplify(test3-test4) == 0 )
-    print(test3.evalf() == test4.evalf())
-    print(simplify(arg((1 + I))))
     rounds_needed = 0
-    while rounds_needed < 3:
+    while rounds_needed < 5:
         stab = qudit_stab(stab, gates, 1)
         rounds_needed += 1
+        print("Round " + str(rounds_needed) + ": ")
     print(len(stab))
     print("Successfully terminated in " + str(rounds_needed) + " rounds.")
