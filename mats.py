@@ -43,21 +43,30 @@ def sqrt_sqrt_Z(d):
     return sqrt(sqrt_Z(d))
 
 #implement later
-def SUM(d, n):
+def SUM(d):
     if d == 2:
         return Matrix([[1, 0, 0 , 0], [0, 1, 0, 0],  [0, 0, 0 ,1], [0, 0, 1, 0]])
     return Matrix(d, d, lambda i, j: 1 if (i - j) % d == 0 else 0)
 
 def chp(d, n):
-    gates = [dft_gate(d), p_gate(d), eye(d)]
-    chp = n_qubit_gates(gates, n)
-    if n > 1:
-        chp.append(SUM(d, n))
-    return chp
-
-
-def n_qubit_gates(gates, n):
     if n == 1:
-        return gates
-    tensor_products = [TensorProduct(*combination) for combination in product(gates, repeat=n)]
-    return tensor_products
+        return [dft_gate(d), p_gate(d), eye(d)]
+    elif n == 2:
+        return [TensorProduct(*combination) for combination in product(chp(d,n-1), repeat=n)] + [SUM(d)]
+    else:
+        single_qudit_gates = chp(d, 1)
+        gates = chp(d, n-1)
+        return generate_matrices(single_qudit_gates, gates)
+
+def generate_matrices(gates1, gates2):
+    matrices = []
+    for gate1 in gates1:
+        for gate2 in gates2:
+            matrix = TensorProduct(gate1, gate2)
+            matrices.append(matrix)
+    return matrices
+
+if __name__ == "__main__":
+    gates = chp(2, 5)
+    for i, item in enumerate(gates):
+        print(f"Item {i+1}: {item.shape}")
