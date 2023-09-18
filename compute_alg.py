@@ -3,20 +3,17 @@ from sympy import *
 from sympy.physics.quantum import TensorProduct
 from itertools import product
 
-def qudit_stab(qudits, gates, rounds):
-    stabilzed = {}
-    for _ in range(rounds):
-        for p in gates:
-            for v in qudits:
+def qudit_stab(stabilized, gates, rounds):
+    for v in list(stabilized.values()): # given every currently seen starting state, test all gates of depth round
+        for _ in range(rounds):
+            for p in gates:
                 vec = p * v
                 relPhase_vec = discard_global_phase_state(vec)
-                relPhase_vec_num = N(relPhase_vec, 15, chop=True)
-                relPhase_vec_simplify = relPhase_vec_num.applyfunc(nsimplify)
-                if relPhase_vec_simplify not in stabilzed:
-                    stabilzed[relPhase_vec_simplify] = relPhase_vec_simplify
-                    if len(stabilzed)% 80 == 0:
-                        print(relPhase_vec_simplify)
-    return stabilzed
+                if relPhase_vec not in stabilized:
+                    stabilized[relPhase_vec] = relPhase_vec
+                    if len(stabilized) % 80 == 0:
+                        print(relPhase_vec)
+    return stabilized
 
 def discard_global_phase_state(mat):
     mat = mat.as_mutable()  # Convert to mutable matrix
@@ -30,7 +27,9 @@ def discard_global_phase_state(mat):
         for i in range(mat.rows):
             mat[i] = mat[i] * exp(-I * global_phase)
             mat[i].expand(Complex=True)
-    return mat.as_immutable()  # Convert back to immutable matrix if needed
+    mat_num = N(mat, 15, chop=True)
+    mat_simplify = mat_num.applyfunc(nsimplify)
+    return mat_simplify.as_immutable()  # Convert back to immutable matrix if needed
 
 
 def n_qudit_comp_basis(n):
@@ -49,18 +48,28 @@ if __name__ == "__main__":
     n = int(input("Num: "))
     #initialization 
     gates = mats.chp(d, n)
-    stab = n_qudit_comp_basis(n)
+    qudits = n_qudit_comp_basis(n)
     for i in range(len(gates)):
         gates[i] = gates[i].as_immutable()
         #print(gates[i])
 
-    for i in range(len(stab)):
-        stab[i] = stab[i].as_immutable()
+    for i in range(len(qudits)):
+        qudits[i] = qudits[i].as_immutable()
         #print(stab[i])
-    rounds_needed = 0
-    while rounds_needed < 5:
-        stab = qudit_stab(stab, gates, 1)
-        rounds_needed += 1
-        print("Round " + str(rounds_needed) + ": ")
-    print(len(stab))
+    stabilized = {q: q for q in qudits}
+    rounds_needed = 1
+    prev_seen = len(qudits)
+    while True:
+        stabilized = qudit_stab(stabilized, gates, rounds_needed)
+        now_seen = len(stabilized)
+        if prev_seen == now_seen:
+            break
+        else:
+            prev_seen = now_seen
+            rounds_needed += 1
+            print("Round " + str(rounds_needed) + ": ")
+    for key in stabilized:
+        pprint(key.T)
+
+    print(len(stabilized))
     print("Successfully terminated in " + str(rounds_needed) + " rounds.")

@@ -67,6 +67,4 @@ def generate_matrices(gates1, gates2):
     return matrices
 
 if __name__ == "__main__":
-    gates = chp(2, 5)
-    for i, item in enumerate(gates):
-        print(f"Item {i+1}: {item.shape}")
+    pprint(TensorProduct(SUM(2), eye(2)))
