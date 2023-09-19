@@ -52,19 +52,11 @@ def chp(d, n):
     if n == 1:
         return [dft_gate(d), p_gate(d), eye(d)]
     elif n == 2:
-        return [TensorProduct(*combination) for combination in product(chp(d,n-1), repeat=n)] + [SUM(d)]
+        return [TensorProduct(*combination) for combination in product(chp(d,1), repeat=2)] + [SUM(d)]
     else:
-        single_qudit_gates = chp(d, 1)
+        single_qubit_gates = chp(d, 1)
         gates = chp(d, n-1)
-        return generate_matrices(single_qudit_gates, gates)
-
-def generate_matrices(gates1, gates2):
-    matrices = []
-    for gate1 in gates1:
-        for gate2 in gates2:
-            matrix = TensorProduct(gate1, gate2)
-            matrices.append(matrix)
-    return matrices
+        return [TensorProduct(*combination) for combination in product(single_qubit_gates, gates)]
 
 if __name__ == "__main__":
-    pprint(TensorProduct(SUM(2), eye(2)))
+    pprint(chp(5,1))

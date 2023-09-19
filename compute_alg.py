@@ -11,7 +11,7 @@ def qudit_stab(stabilized, gates, rounds):
                 relPhase_vec = discard_global_phase_state(vec)
                 if relPhase_vec not in stabilized:
                     stabilized[relPhase_vec] = relPhase_vec
-                    if len(stabilized) % 10 == 0:
+                    if len(stabilized) % 10 == 0 and len(stabilized) >= 360:
                         print(relPhase_vec)
     return stabilized
 
@@ -26,10 +26,9 @@ def discard_global_phase_state(mat):
         # Discard the global phase from all elements
         for i in range(mat.rows):
             mat[i] = mat[i] * exp(-I * global_phase)
-            # mat[i].expand(Complex=True)
     mat_num = N(mat, 15, chop=True)
     mat_simplify = mat_num.applyfunc(nsimplify)
-    return mat_simplify.as_immutable()  # Convert back to immutable matrix if needed
+    return mat_simplify.as_immutable()  # Convert back to immutable matrix
 
 
 def n_qudit_comp_basis(n):
@@ -52,7 +51,6 @@ if __name__ == "__main__":
     for i in range(len(gates)):
         gates[i] = gates[i].as_immutable()
         #print(gates[i])
-
     for i in range(len(qudits)):
         qudits[i] = qudits[i].as_immutable()
         #print(stab[i])
@@ -67,9 +65,11 @@ if __name__ == "__main__":
         else:
             prev_seen = now_seen
             rounds_needed += 1
-            print("Round " + str(rounds_needed) + ": ")
-    for key in stabilized:
-        pprint(key.T)
-
-    print(len(stabilized))
+            print("Round " + str(rounds_needed) + " complete. " + str(now_seen) + " states seen.")
     print("Successfully terminated in " + str(rounds_needed) + " rounds.")
+    # Ask the user if they want to print the seen states
+    print_states = input("Would you like to print the discovered states? Y/N: ")
+    
+    if print_states.lower() == 'y':
+        for key in stabilized:
+            print(key.T)
