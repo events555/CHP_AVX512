@@ -11,7 +11,7 @@ def qudit_stab(stabilized, gates, rounds):
                 relPhase_vec = discard_global_phase_state(vec)
                 if relPhase_vec not in stabilized:
                     stabilized[relPhase_vec] = relPhase_vec
-                    if len(stabilized) % 80 == 0:
+                    if len(stabilized) % 10 == 0:
                         print(relPhase_vec)
     return stabilized
 
@@ -19,14 +19,14 @@ def discard_global_phase_state(mat):
     mat = mat.as_mutable()  # Convert to mutable matrix
     global_phase = None
     for i in range(mat.rows):
-        if mat[i] != 0:  # Avoid division by zero
+        if N(mat[i], 15, chop=True) != 0:  # Avoid division by zero, values close to 0 were getting through != and arg was returning NaN for 0
             global_phase = arg(mat[i])
             break
     if global_phase is not None:
         # Discard the global phase from all elements
         for i in range(mat.rows):
             mat[i] = mat[i] * exp(-I * global_phase)
-            mat[i].expand(Complex=True)
+            # mat[i].expand(Complex=True)
     mat_num = N(mat, 15, chop=True)
     mat_simplify = mat_num.applyfunc(nsimplify)
     return mat_simplify.as_immutable()  # Convert back to immutable matrix if needed
