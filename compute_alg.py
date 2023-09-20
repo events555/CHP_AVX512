@@ -45,8 +45,14 @@ if __name__ == "__main__":
     #sanitize input later
     d = int(input("Dim: "))
     n = int(input("Num: "))
+    max_rounds = int(input("Max rounds: "))
+    t_gate = input("Include T-gate? Y/N: ")
     #initialization 
-    gates = mats.chp(d, n)
+    if t_gate.lower() == 'y':
+        gates = mats.chpt(d, n)
+    else:
+        gates = mats.chp(d, n)
+        
     qudits = n_qudit_comp_basis(n)
     for i in range(len(gates)):
         gates[i] = gates[i].as_immutable()
@@ -57,7 +63,7 @@ if __name__ == "__main__":
     stabilized = {q: q for q in qudits}
     rounds_needed = 1
     prev_seen = len(qudits)
-    while True:
+    while rounds_needed < max_rounds:
         stabilized = qudit_stab(stabilized, gates, rounds_needed)
         now_seen = len(stabilized)
         if prev_seen == now_seen:

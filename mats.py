@@ -37,7 +37,12 @@ def p_gate(d):
     return Matrix(W)
 
 def sqrt_Z(d):
-    return sqrt(p_gate(d))
+    omega = exp(pi*I/(2*d))
+    if d % 2 == 0:
+        W = [[omega**((-i * (i + 2))) if i == j else 0 for j in range(d)] for i in range(d)]
+    else:
+        W = [[omega**((-i * (i + 1))) if i == j else 0 for j in range(d)] for i in range(d)]
+    return Matrix(W)
 
 def sqrt_sqrt_Z(d):
     return sqrt(sqrt_Z(d))
@@ -58,5 +63,15 @@ def chp(d, n):
         gates = chp(d, n-1)
         return [TensorProduct(*combination) for combination in product(single_qubit_gates, gates)]
 
+def chpt(d, n):
+    if n == 1:
+        return [dft_gate(d), p_gate(d), eye(d), sqrt_Z(d)]
+    elif n == 2:
+        return [TensorProduct(*combination) for combination in product(chpt(d,1), repeat=2)] + [SUM(d)]
+    else:
+        single_qubit_gates = chpt(d, 1)
+        gates = chpt(d, n-1)
+        return [TensorProduct(*combination) for combination in product(single_qubit_gates, gates)]
+
 if __name__ == "__main__":
-    pprint(chp(5,1))
+    pprint(chpt(2,2))
