@@ -2,27 +2,6 @@ from sympy import *
 from sympy.physics.quantum import TensorProduct
 from itertools import product
 
-pauli_matrices =                                                        \
-        [                                                               \
-                Matrix([[0, 1], [1, 0]]),                               \
-                Matrix([[0,-I], [I, 0]]),                               \
-                Matrix([[1, 0], [0, -1]])                               \
-        ]
-
-gell_mann_matrices =                                                    \
-        [                                                               \
-            Matrix([ [0, 1, 0], [1, 0, 0], [0, 0, 0] ]),                \
-            Matrix([ [0,-I, 0], [I, 1, 0], [0, 0, 0] ]),                \
-            Matrix([ [1, 0, 0], [0,-1, 0], [0, 0, 0] ]),                \
-            Matrix([ [0, 0, 1], [0, 0, 0], [1, 0, 0] ]),                \
-            Matrix([ [0, 0,-I], [0, 0, 0], [I, 0, 0] ]),                \
-            Matrix([ [0, 0, 0], [0, 0, 1], [0, 1, 0] ]),                \
-            Matrix([ [0, 0, 0], [0, 0,-I], [0,I , 0] ]),                \
-            (1 / sqrt(3)) * Matrix([ [1+I*sqrt(3),   I*sqrt(3),   I*sqrt(3)],           \
-                                      [-I*sqrt(3),   -2+I*sqrt(3), -2*I*sqrt(3)],       \
-                                      [-I*sqrt(3), -2*I*sqrt(3),   -2+I*sqrt(3)] ]) 
-        ]
-
 def dft_gate(d):
     omega = exp((-2 * pi * I) / d)
     W = [[omega**(i * j) / sqrt(d) for j in range(d)] for i in range(d)]
