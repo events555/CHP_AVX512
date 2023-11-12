@@ -10,4 +10,4 @@ The output of this program using `SUPRESS_OUTPUT` and `LOG_OUTPUT` respectively 
 -   A text file containing all the stabilized states.
 
 ## Authors
--   Adeeb Kabir
+-  Steven Nguyen
