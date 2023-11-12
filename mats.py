@@ -1,69 +1,56 @@
-import numpy as np
-import math
-
-imag_unit = complex(0+1j)
-
-pauli_matrices =                                                        \
-        [                                                               \
-                np.array([[0+0j, 1+0j], [1+0j, 0+0j]]),                 \
-                np.array([[0,0-1j], [0+1j, 0]]),                        \
-                np.array([[1+0j, 0+0j], [0+0j, -1+0j]])                 \
-        ]
-
-
-gell_mann_matrices = \
-        [
-            np.array([ [0+0j, 1+0j, 0+0j], [1+0j, 0+0j, 0+0j], [0+0j, 0+0j, 0+0j] ]),           \
-            np.array([ [0+0j, 0-1j, 0+0j], [1+0j, 0+1j, 0+0j], [0+0j, 0+0j, 0+0j] ]),           \
-            np.array([ [1+0j, 0+0j, 0+0j], [0+0j, -1+0j, 0+0j], [0+0j, 0+0j, 0+0j] ]),          \
-            np.array([ [0+0j, 0+0j, 1+0j], [0+0j, 0+0j, 0+0j], [1+0j, 0+0j, 0+0j] ]),           \
-            np.array([ [0+0j, 0+0j, 0-1j], [0+0j, 0+0j, 0+0j], [0+1j, 0+0j, 0+0j] ]),           \
-            np.array([ [0+0j, 0+0j, 0+0j], [0+0j, 0+0j, 1+0j], [0+0j, 1+0j, 0+0j] ]),           \
-            np.array([ [0+0j, 0+0j, 0+0j], [0+0j, 0+0j, 0-1j], [0+0j, 0+1j, 0+0j] ]),           \
-            (1 / math.sqrt(3)) * np.array([ [1+0j, 0+0j, 0+0j], [0+0j, 1+0j, 0+0j], [0+0j, 0+0j, -2+0j] ]),          \
-        ]
-
+from sympy import *
+from sympy.physics.quantum import TensorProduct
+from itertools import product
 
 def dft_gate(d):
-    omega = np.exp((- 2 * math.pi * imag_unit) / d )
-    W = np.eye(d, d, dtype='cfloat')
-    it = np.nditer(W, flags = ['multi_index'], op_flags = ['readwrite'])
-    for k in it:
-        i = it.multi_index[0]
-        j = it.multi_index[1]
-        W[i, j] = np.power(omega, i * j) / math.sqrt(d)
-        
-    return W
-
+    omega = exp((-2 * pi * I) / d)
+    W = [[omega**(i * j) / sqrt(d) for j in range(d)] for i in range(d)]
+    return Matrix(W)
 
 def p_gate(d):
-    omega = np.exp((- 2 * math.pi * imag_unit) / d )
-    W = np.eye(d, d, dtype='cfloat')
-    for k in range(d):
-        W[k, k] = np.power(omega, ( k * (k - 1) ) // 2)
-
-    return W
+    omega = exp(pi*I/d)
+    if d % 2 == 0:
+        W = [[omega**((-i * (i + 2))) if i == j else 0 for j in range(d)] for i in range(d)]
+    else:
+        W = [[omega**((-i * (i + 1))) if i == j else 0 for j in range(d)] for i in range(d)]
+    return Matrix(W)
 
 def sqrt_Z(d):
-    return np.diag( [ np.sqrt( np.exp(( -2 * math.pi * imag_unit * k) / d) ) for k in range(d) ] )
+    omega = exp(pi*I/(2*d))
+    if d % 2 == 0:
+        W = [[omega**((-i * (i + 2))) if i == j else 0 for j in range(d)] for i in range(d)]
+    else:
+        W = [[omega**((-i * (i + 1))) if i == j else 0 for j in range(d)] for i in range(d)]
+    return Matrix(W)
 
 def sqrt_sqrt_Z(d):
-    return np.sqrt(sqrt_Z(d))
+    return sqrt(sqrt_Z(d))
 
 #implement later
 def SUM(d):
-   return np.eye(d, d, dtype='cfloat')
+    if d == 2:
+        return Matrix([[1, 0, 0 , 0], [0, 1, 0, 0],  [0, 0, 0 ,1], [0, 0, 1, 0]])
+    return Matrix(d, d, lambda i, j: 1 if (i - j) % d == 0 else 0)
 
-def chp(d):
-    return [SUM(d), dft_gate(d), sqrt_Z(d)]
+def chp(d, n):
+    if n == 1:
+        return [dft_gate(d), p_gate(d), eye(d)]
+    elif n == 2:
+        return [TensorProduct(*combination) for combination in product(chp(d,1), repeat=2)] + [SUM(d)]
+    else:
+        single_qubit_gates = chp(d, 1)
+        gates = chp(d, n-1)
+        return [TensorProduct(*combination) for combination in product(single_qubit_gates, gates)]
 
-def chp_plus_labels(d):
-    return [chp(d), ["C", "D", "Z"]]
+def chpt(d, n):
+    if n == 1:
+        return [dft_gate(d), p_gate(d), eye(d), sqrt_Z(d)]
+    elif n == 2:
+        return [TensorProduct(*combination) for combination in product(chpt(d,1), repeat=2)] + [SUM(d)]
+    else:
+        single_qubit_gates = chpt(d, 1)
+        gates = chpt(d, n-1)
+        return [TensorProduct(*combination) for combination in product(single_qubit_gates, gates)]
 
-
-qubit_comp_basis =                                                      \
-        [                                                               \
-            np.array([[0+0j], [1+0j]]),                                 \
-            np.array([[1+0j], [0+0j]])                                  \
-        ]
-
+if __name__ == "__main__":
+    pprint(chpt(2,2))
