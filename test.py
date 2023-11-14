@@ -2,7 +2,6 @@ from sympy import *
 from sympy.physics.quantum import TensorProduct
 from itertools import product
 
-
 def generate_paulis(d):
 
     # Shift Matrix
@@ -21,13 +20,13 @@ def generate_clifford(d):
     # P Gate
     P = Matrix.eye(d)
     for j in range(d):
-        P[j, j] = exp(I*(1-sign(d-1-j))*2*pi/d)
+        P[j, j] = exp(I*2*pi/d*j*(j-1)/2)
 
     # DFT Matrix
-    W = Matrix.zeros(d)
+    R = Matrix.zeros(d)
     for m in range(d):
         for n in range(d):
-            W[m, n] = 1/sqrt(d) * exp(2*pi*I*m*n/d)
+            R[m, n] = 1/sqrt(d) * exp(2*pi*I*m*n/d)
 
     # SUM Gate
     SUM = Matrix.zeros(d**2)
@@ -43,14 +42,13 @@ def generate_clifford(d):
                 S[a, a] = 1
                 break
 
-    return P, W, SUM, S
+    return P, R, SUM, S
 
-def generate_powers(X, Z, W, d):
+def generate_powers(X, Z, d):
     X_list = [(X**i).applyfunc(nsimplify) for i in range(1, d)]
     Z_list = [(Z**i).applyfunc(nsimplify) for i in range(1, d)]
-    W_list = [(W**i).applyfunc(nsimplify) for i in range(1, d)]
 
-    return X_list, Z_list, W_list
+    return X_list, Z_list
 
 def generate_tensor_products(X, Z, I):
     # Generate tensor products
@@ -63,20 +61,14 @@ def generate_tensor_products(X, Z, I):
     XZ = TensorProduct(X, Z)
     ZX = TensorProduct(Z, X)
     Z_InvZ = TensorProduct(Z.inv(), Z)
-
     return XI, IX, ZI, IZ, XX, ZZ, XZ, ZX, Z_InvZ
-# Usage
-d = 5  # Dimension
-X, Z = generate_paulis(d)
-P, W, SUM, S = generate_clifford(d)
-X_list, Z_list, W_list = generate_powers(X, Z, W, d)
-XZ_list = [(X_list[i-1] * Z_list[j-1]).applyfunc(nsimplify) for i in range(1, d) for j in range(1, d)]
-tensor_products = generate_tensor_products(X, Z, Matrix.eye(d))
-def generate_W_mapping(X_list, Z_list, W):
+
+def generate_R_mapping(X_list, Z_list, R):
     mapping = {}
+    R_inv = R.inv()
     for gate_list, gate_name in [(X_list, 'X'), (Z_list, 'Z')]:
         for i, gate in enumerate(gate_list):
-            conjugated_gate = W * gate * W.inv()
+            conjugated_gate = R * gate * R_inv
             conjugated_gate = conjugated_gate.applyfunc(nsimplify)
             for j, X_prime in enumerate(X_list):
                 if conjugated_gate == X_prime:
@@ -87,11 +79,13 @@ def generate_W_mapping(X_list, Z_list, W):
                     mapping[f"{gate_name}^{i+1}"] = f"Z^{j+1}"
                     break
     return mapping
+
 def generate_P_mapping(X_list, Z_list, XZ_list, P):
     mapping = {}
+    P_inv = P.inv()
     for gate_list, gate_name in [(X_list, 'X'), (Z_list, 'Z')]:
         for i, gate in enumerate(gate_list):
-            conjugated_gate = P * gate * P.inv()
+            conjugated_gate = P * gate * P_inv
             conjugated_gate = conjugated_gate.applyfunc(nsimplify)
             for j, X_prime in enumerate(X_list):
                 if conjugated_gate == X_prime:
@@ -106,11 +100,13 @@ def generate_P_mapping(X_list, Z_list, XZ_list, P):
                     mapping[f"{gate_name}^{i+1}"] = f"X^{k}*Z^{l}"
                     break
     return mapping
+
 def generate_S_mapping(X_list, Z_list, XZ_list, S):
     mapping = {}
+    S_inv = S.inv()
     for gate_list, gate_name in [(X_list, 'X'), (Z_list, 'Z')]:
         for i, gate in enumerate(gate_list):
-            conjugated_gate = S * gate * S.inv()
+            conjugated_gate = S * gate * S_inv
             conjugated_gate = conjugated_gate.applyfunc(nsimplify)
             for j, X_prime in enumerate(X_list):
                 if conjugated_gate == X_prime:
@@ -129,17 +125,27 @@ def generate_S_mapping(X_list, Z_list, XZ_list, S):
 def generate_SUM_mapping(tensor_products, SUM):
     mapping = {}
     tensor_product_names = ['X ⊗ I', 'I ⊗ X', 'Z ⊗ I', 'I ⊗ Z', 'X ⊗ X', 'Z ⊗ Z', 'X ⊗ Z', 'Z ⊗ X', 'Z^-1 ⊗ Z']
+    SUM_inv = SUM.inv()
     for i, tensor_product in enumerate(tensor_products):
-        conjugated_gate = SUM * tensor_product * SUM.inv()
+        conjugated_gate = SUM * tensor_product * SUM_inv
         conjugated_gate = conjugated_gate.applyfunc(nsimplify)
         for j, tensor_product_prime in enumerate(tensor_products):
             if conjugated_gate.equals(tensor_product_prime):
                 mapping[tensor_product_names[i]] = tensor_product_names[j]
                 break
     return mapping
+
 # Usage
-W_mapping = generate_W_mapping(X_list, Z_list, W)
-for key, value in W_mapping.items():
+d = 5  # Dimension
+X, Z = generate_paulis(d)
+P, R, SUM, S = generate_clifford(d)
+X_list, Z_list = generate_powers(X, Z, d)
+XZ_list = [(X_list[i-1] * Z_list[j-1]).applyfunc(nsimplify) for i in range(1, d) for j in range(1, d)]
+tensor_products = generate_tensor_products(X, Z, Matrix.eye(d))
+
+print("\nR mapping:")
+R_mapping = generate_R_mapping(X_list, Z_list, R)
+for key, value in R_mapping.items():
     print(f"{key} -> {value}")
 
 print("\nP mapping:")
@@ -153,5 +159,3 @@ SUM_mapping = generate_SUM_mapping(tensor_products, SUM)
 for key, value in SUM_mapping.items():
     print(f"{key} -> {value}")
 
-pprint(P*X*P.inv())
-pprint(P)
