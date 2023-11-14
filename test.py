@@ -21,7 +21,7 @@ def generate_clifford(d):
     # P Gate
     P = Matrix.eye(d)
     for j in range(d):
-        P[j, j] = exp(I*pi*j*(j-1)/d)
+        P[j, j] = exp(I*(1-sign(d-1-j))*2*pi/d)
 
     # DFT Matrix
     W = Matrix.zeros(d)
@@ -66,7 +66,7 @@ def generate_tensor_products(X, Z, I):
 
     return XI, IX, ZI, IZ, XX, ZZ, XZ, ZX, Z_InvZ
 # Usage
-d = 3  # Dimension
+d = 5  # Dimension
 X, Z = generate_paulis(d)
 P, W, SUM, S = generate_clifford(d)
 X_list, Z_list, W_list = generate_powers(X, Z, W, d)
@@ -152,3 +152,6 @@ print("\nSUM mapping:")
 SUM_mapping = generate_SUM_mapping(tensor_products, SUM)
 for key, value in SUM_mapping.items():
     print(f"{key} -> {value}")
+
+pprint(P*X*P.inv())
+pprint(P)
