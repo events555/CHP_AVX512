@@ -22,28 +22,12 @@ class Qudit:
                     new_pauli_string += "X"*self.a
             elif char == "Z":
                 if gate == "R":
-                    new_pauli_string += "X^-1"
+                    new_pauli_string += "X"*(self.dimension-1)
                 elif gate == "S":
                     new_pauli_string += "Z"*self.b
         self.pauli_string = new_pauli_string
         if gate == "SUM" and target is not None:
             self.apply_SUM_gate(target)
-
-    def apply_R_gate(self):
-        if self.pauli_string == "X":
-            self.pauli_string = "Z"
-        elif self.pauli_string == "Z":
-            self.pauli_string = "X^-1"
-
-    def apply_P_gate(self):
-        if self.pauli_string == "X":
-            self.pauli_string = "XZ"
-
-    def apply_S_gate(self):
-        if self.pauli_string == "X":
-            self.pauli_string = "X"*self.a
-        elif self.pauli_string == "Z":
-            self.pauli_string = "Z"*self.b
 
     def apply_SUM_gate(self, control_index, target_index):
         control_qudit = self.qudits[control_index]
@@ -51,7 +35,8 @@ class Qudit:
         if control_qudit.pauli_string == "X" and target_qudit.pauli_string == "I":
             target_qudit.pauli_string = "X"
         elif control_qudit.pauli_string == "I" and target_qudit.pauli_string == "Z":
-            control_qudit.pauli_string = "Z^-1"
+            control_qudit.pauli_string = "Z"*(self.dimension-1)
+
     def find_ab(self, d):
         for a in range(1, d):
             for b in range(1, d):
@@ -121,6 +106,8 @@ qc.add_gate("S", 2)
 qc.add_gate("S", 0)
 qc.add_gate("S", 0)
 qc.add_gate("S", 2)
+qc.add_gate("R", 0)
+qc.add_gate("S", 0)
 print(qr)
 qc.simulate()
 print(qr)
