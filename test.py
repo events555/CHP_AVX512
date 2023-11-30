@@ -2,7 +2,7 @@ from sympy import *
 from sympy.physics.quantum import TensorProduct
 from itertools import product
 from circuit import Qudit, QuditRegister, Gate, Circuit
-
+from compute_alg import discard_global_phase_state
 def generate_paulis(d):
     # Shift Matrix
     X = Matrix.zeros(d)
@@ -19,8 +19,10 @@ def generate_paulis(d):
 def generate_clifford(d):
     # P Gate
     P = Matrix.eye(d)
-    for j in range(d):
-        P[j, j] = exp(I*2*pi/d*j*(j-1)/2)
+    if d == 2:
+        P[d-1, d-1] = exp(I*pi/2)
+    else:
+        P[d-1, d-1] = exp(I*2*pi/d)
 
     # DFT Matrix
     R = Matrix.zeros(d)
@@ -65,7 +67,10 @@ def generate_tensor_products(X, Z, I):
 
 import random
 
-def statevec_test(d, num_qudits=2, num_gates=2):
+def statevec_test(d, num_qudits=2, num_gates=2, seed=None):
+    # Set the seed for the random number generator
+    random.seed(seed)
+
     qr = QuditRegister("Test", d, num_qudits)
     qc = Circuit(qr)
     X, Z = generate_paulis(d)
@@ -73,13 +78,13 @@ def statevec_test(d, num_qudits=2, num_gates=2):
 
     # Initialize the statevector
     statevec = Matrix([1 if i == 0 else 0 for i in range(d**num_qudits)])
-
     # Add a series of random gates to the quantum circuit
     for _ in range(num_gates):
         gate_name = random.choice(["R", "P"] if num_qudits >= 2 else ["R", "P"])
         qudit_index = random.randrange(num_qudits)
         if gate_name == "SUM":
-            qc.add_gate(gate_name, num_qudits-2, num_qudits-1)
+            target_index = random.choice([i for i in range(num_qudits) if i != qudit_index])
+            qc.add_gate(gate_name, qudit_index, target_index)
         else:
             qc.add_gate(gate_name, qudit_index)
 
@@ -110,28 +115,28 @@ def statevec_test(d, num_qudits=2, num_gates=2):
     stabilizers = []
     for i in range(qr.size):
         pauli_string = qr[i].pauli_string
-        stabilizer = eye(d)
+        stab = eye(d)
         for char in pauli_string:
             if char == 'X':
-                stabilizer = stabilizer * X
+                stab = stab * X
             elif char == 'Z':
-                stabilizer = stabilizer * Z
-        stabilizers.append(stabilizer)
+                stab = stab * Z
+        stabilizers.append(stab)
 
-    final_stabilizer = stabilizers[0]
-    for stabilizer in stabilizers[1:]:
-        final_stabilizer = TensorProduct(final_stabilizer, stabilizer)
-
-    if final_stabilizer * statevec != statevec:
+    final_stab = stabilizers[0]
+    for stab in stabilizers[1:]:
+        final_stab = TensorProduct(final_stab, stab)
+    stabilized = discard_global_phase_state(final_stab * statevec)
+    statevec = discard_global_phase_state(statevec)
+    if stabilized != statevec:
         print(f"Not stabilized.")
     else:
         print(f"Stabilized.")
-    pprint(final_stabilizer)
-    pprint(statevec)
+    pprint(tensor_product)
     print(qc)
     print(qr)
 
 
-statevec_test(2, 3, 4)
+statevec_test(2, 4, 5, seed=7)
 
 
