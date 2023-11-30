@@ -1,9 +1,9 @@
 from sympy import *
 from sympy.physics.quantum import TensorProduct
 from itertools import product
+from circuit import Qudit, QuditRegister, Gate, Circuit
 
 def generate_paulis(d):
-
     # Shift Matrix
     X = Matrix.zeros(d)
     for i in range(d):
@@ -63,99 +63,75 @@ def generate_tensor_products(X, Z, I):
     Z_InvZ = TensorProduct(Z.inv(), Z)
     return XI, IX, ZI, IZ, XX, ZZ, XZ, ZX, Z_InvZ
 
-def generate_R_mapping(X_list, Z_list, R):
-    mapping = {}
-    R_inv = R.inv()
-    for gate_list, gate_name in [(X_list, 'X'), (Z_list, 'Z')]:
-        for i, gate in enumerate(gate_list):
-            conjugated_gate = R * gate * R_inv
-            conjugated_gate = conjugated_gate.applyfunc(nsimplify)
-            for j, X_prime in enumerate(X_list):
-                if conjugated_gate == X_prime:
-                    mapping[f"{gate_name}^{i+1}"] = f"X^{j+1}"
-                    break
-            for j, Z_prime in enumerate(Z_list):
-                if conjugated_gate == Z_prime:
-                    mapping[f"{gate_name}^{i+1}"] = f"Z^{j+1}"
-                    break
-    return mapping
+import random
 
-def generate_P_mapping(X_list, Z_list, XZ_list, P):
-    mapping = {}
-    P_inv = P.inv()
-    for gate_list, gate_name in [(X_list, 'X'), (Z_list, 'Z')]:
-        for i, gate in enumerate(gate_list):
-            conjugated_gate = P * gate * P_inv
-            conjugated_gate = conjugated_gate.applyfunc(nsimplify)
-            for j, X_prime in enumerate(X_list):
-                if conjugated_gate == X_prime:
-                    mapping[f"{gate_name}^{i+1}"] = f"X^{j+1}"
-                    break
-            for j, Z_prime in enumerate(Z_list):
-                if conjugated_gate == Z_prime:
-                    mapping[f"{gate_name}^{i+1}"] = f"Z^{j+1}"
-                    break
-            for j, (k, l) in enumerate(product(range(1, d), repeat=2)):
-                if conjugated_gate == XZ_list[j]:
-                    mapping[f"{gate_name}^{i+1}"] = f"X^{k}*Z^{l}"
-                    break
-    return mapping
+def statevec_test(d, num_qudits=2, num_gates=2):
+    qr = QuditRegister("Test", d, num_qudits)
+    qc = Circuit(qr)
+    X, Z = generate_paulis(d)
+    P, R, SUM, S = generate_clifford(d)
 
-def generate_S_mapping(X_list, Z_list, XZ_list, S):
-    mapping = {}
-    S_inv = S.inv()
-    for gate_list, gate_name in [(X_list, 'X'), (Z_list, 'Z')]:
-        for i, gate in enumerate(gate_list):
-            conjugated_gate = S * gate * S_inv
-            conjugated_gate = conjugated_gate.applyfunc(nsimplify)
-            for j, X_prime in enumerate(X_list):
-                if conjugated_gate == X_prime:
-                    mapping[f"{gate_name}^{i+1}"] = f"X^{j+1}"
-                    break
-            for j, Z_prime in enumerate(Z_list):
-                if conjugated_gate == Z_prime:
-                    mapping[f"{gate_name}^{i+1}"] = f"Z^{j+1}"
-                    break
-            for j, (k, l) in enumerate(product(range(1, d), repeat=2)):
-                if conjugated_gate == XZ_list[j]:
-                    mapping[f"{gate_name}^{i+1}"] = f"X^{k}*Z^{l}"
-                    break
-    return mapping
+    # Initialize the statevector
+    statevec = Matrix([1 if i == 0 else 0 for i in range(d**num_qudits)])
 
-def generate_SUM_mapping(tensor_products, SUM):
-    mapping = {}
-    tensor_product_names = ['X ⊗ I', 'I ⊗ X', 'Z ⊗ I', 'I ⊗ Z', 'X ⊗ X', 'Z ⊗ Z', 'X ⊗ Z', 'Z ⊗ X', 'Z^-1 ⊗ Z']
-    SUM_inv = SUM.inv()
-    for i, tensor_product in enumerate(tensor_products):
-        conjugated_gate = SUM * tensor_product * SUM_inv
-        conjugated_gate = conjugated_gate.applyfunc(nsimplify)
-        for j, tensor_product_prime in enumerate(tensor_products):
-            if conjugated_gate.equals(tensor_product_prime):
-                mapping[tensor_product_names[i]] = tensor_product_names[j]
-                break
-    return mapping
+    # Add a series of random gates to the quantum circuit
+    for _ in range(num_gates):
+        gate_name = random.choice(["R", "P"] if num_qudits >= 2 else ["R", "P"])
+        qudit_index = random.randrange(num_qudits)
+        if gate_name == "SUM":
+            qc.add_gate(gate_name, num_qudits-2, num_qudits-1)
+        else:
+            qc.add_gate(gate_name, qudit_index)
 
-# Usage
-d = 5  # Dimension
-X, Z = generate_paulis(d)
-P, R, SUM, S = generate_clifford(d)
-X_list, Z_list = generate_powers(X, Z, d)
-XZ_list = [(X_list[i-1] * Z_list[j-1]).applyfunc(nsimplify) for i in range(1, d) for j in range(1, d)]
-tensor_products = generate_tensor_products(X, Z, Matrix.eye(d))
+        # Generate the gate matrix
+        if gate_name == "R":
+            gate_matrix = R
+        elif gate_name == "P":
+            gate_matrix = P
+        elif gate_name == "SUM":
+            gate_matrix = SUM
+        elif gate_name == "S":
+            gate_matrix = S
 
-print("\nR mapping:")
-R_mapping = generate_R_mapping(X_list, Z_list, R)
-for key, value in R_mapping.items():
-    print(f"{key} -> {value}")
+        # Generate the list of matrices for the tensor product
+        if gate_name == "SUM":
+            matrices = [eye(d) for _ in range(num_qudits - 2)] + [gate_matrix, gate_matrix]
+        else:
+            matrices = [gate_matrix if i == qudit_index else eye(d) for i in range(num_qudits)]
+        # Calculate the tensor product of the matrices
+        tensor_product = matrices[0]
+        for matrix in matrices[1:]:
+            tensor_product = TensorProduct(tensor_product, matrix)
+        # Apply the gate to the statevector
+        statevec = tensor_product * statevec
 
-print("\nP mapping:")
-P_mapping = generate_P_mapping(X_list, Z_list, XZ_list, P)
-for key, value in P_mapping.items():
-    print(f"{key} -> {value}")
+     # Check if the final stabilizer stabilizes the statevector
+    qc.simulate()
+    stabilizers = []
+    for i in range(qr.size):
+        pauli_string = qr[i].pauli_string
+        stabilizer = eye(d)
+        for char in pauli_string:
+            if char == 'X':
+                stabilizer = stabilizer * X
+            elif char == 'Z':
+                stabilizer = stabilizer * Z
+        stabilizers.append(stabilizer)
+
+    final_stabilizer = stabilizers[0]
+    for stabilizer in stabilizers[1:]:
+        final_stabilizer = TensorProduct(final_stabilizer, stabilizer)
+
+    if final_stabilizer * statevec != statevec:
+        print(f"Not stabilized.")
+    else:
+        print(f"Stabilized.")
+    pprint(final_stabilizer)
+    pprint(statevec)
+    print(qc)
+    print(qr)
 
 
-print("\nSUM mapping:")
-SUM_mapping = generate_SUM_mapping(tensor_products, SUM)
-for key, value in SUM_mapping.items():
-    print(f"{key} -> {value}")
+statevec_test(2, 3, 4)
+
 

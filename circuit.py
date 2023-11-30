@@ -3,7 +3,7 @@ import re
 class Qudit:
     def __init__(self, dimension, a=None, b=None):
         self.dimension = dimension
-        self.pauli_string = "X" # assume computational basis
+        self.pauli_string = "Z" # assume computational basis
         if a is None or b is None:
             self.a, self.b = self.find_ab(dimension)
         else:
@@ -32,6 +32,8 @@ class Qudit:
             elif char == "Z":
                 if gate == "R":
                     new_pauli_string += "X"*(self.dimension-1)
+                elif gate == "P":
+                    new_pauli_string += "Z"
                 elif gate == "S":
                     new_pauli_string += "Z"*self.b
         self.pauli_string = new_pauli_string
@@ -101,7 +103,9 @@ class Circuit:
                 qudit = self.qudit_register[gate.qudit_index]
                 qudit.apply(gate.name)
             qudit.pauli_string = self.simplify_string(qudit.pauli_string, qudit.dimension)
-
+    def __str__(self):
+        gate_list = "\n".join([f"Gate: {gate.name}, Qudit Index: {gate.qudit_index}, Target Index: {gate.qudit_target_index}" for gate in self.gates])
+        return f"Circuit:\n{gate_list}"
     def simplify_string(self, s, d):
         s = re.sub('X'*d, '' if len(s) > d else 'I', s)
         s = re.sub('Z'*d, '' if len(s) > d else 'I', s)
@@ -109,11 +113,11 @@ class Circuit:
             s = s.replace('I', '')
         return s
 
-# qr = QuditRegister("Input Array", 2, 3)
-# qc = Circuit(qr)
-# qc.add_gate("R", 0)
-# qc.add_gate("P", 1)
-# qc.add_gate("SUM", 0, 1)
-# qc.add_gate("SUM", 1, 0)
-# qc.simulate()
-# print(qr)
+qr = QuditRegister("Input Array", 2, 3)
+qc = Circuit(qr)
+qc.add_gate("P", 1)
+qc.add_gate("P", 0)
+qc.add_gate("P", 2)
+qc.add_gate("R", 0)
+qc.simulate()
+print(qr)
