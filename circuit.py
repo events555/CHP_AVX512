@@ -9,7 +9,8 @@ class Qudit:
         else:
             self.a = a
             self.b = b
-
+    def set(self, pauli_string):
+        self.pauli_string = pauli_string
     def apply(self, gate, target=None):
         if gate == "SUM" and target is not None:
             for char in self.pauli_string:
@@ -58,12 +59,18 @@ class QuditRegister:
     def __str__(self):
             tensor_product = "\u2297 ".join([qudit.pauli_string for qudit in self.qudits])
             return f"{self.name}: {tensor_product}"
+
+    def set(self, pauli_string):
+        for i, qudit in enumerate(self.qudits):
+            qudit.set(pauli_string[i])
+
     def find_ab(self, d):
         for a in range(1, d):
             for b in range(1, d):
                 if (a * b) % d == 1 and not (a == 1 and b == 1):
                     return a, b
         return None, None
+
 
 class Gate:
     def __init__(self, name, qudit, target=None):
@@ -102,11 +109,11 @@ class Circuit:
             s = s.replace('I', '')
         return s
 
-qr = QuditRegister("Input Array", 2, 3)
-qc = Circuit(qr)
-qc.add_gate("R", 0)
-qc.add_gate("P", 1)
-qc.add_gate("SUM", 0, 1)
-qc.add_gate("SUM", 1, 0)
-qc.simulate()
-print(qr)
+# qr = QuditRegister("Input Array", 2, 3)
+# qc = Circuit(qr)
+# qc.add_gate("R", 0)
+# qc.add_gate("P", 1)
+# qc.add_gate("SUM", 0, 1)
+# qc.add_gate("SUM", 1, 0)
+# qc.simulate()
+# print(qr)
