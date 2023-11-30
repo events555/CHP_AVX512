@@ -3,6 +3,8 @@ from sympy.physics.quantum import TensorProduct
 from itertools import product
 from circuit import Qudit, QuditRegister, Gate, Circuit
 from compute_alg import discard_global_phase_state
+import time
+
 def generate_paulis(d):
     # Shift Matrix
     X = Matrix.zeros(d)
@@ -67,76 +69,74 @@ def generate_tensor_products(X, Z, I):
 
 import random
 
-def statevec_test(d, num_qudits=2, num_gates=2, seed=None):
+def statevec_test(d, trials=1, num_qudits=2, num_gates=2, seed=int(time.time())):
     # Set the seed for the random number generator
     random.seed(seed)
 
-    qr = QuditRegister("Test", d, num_qudits)
-    qc = Circuit(qr)
-    X, Z = generate_paulis(d)
-    P, R, SUM, S = generate_clifford(d)
+    for trial in range(trials):
+        qr = QuditRegister("Test", d, num_qudits)
+        qc = Circuit(qr)
+        X, Z = generate_paulis(d)
+        P, R, SUM, S = generate_clifford(d)
 
-    # Initialize the statevector
-    statevec = Matrix([1 if i == 0 else 0 for i in range(d**num_qudits)])
-    # Add a series of random gates to the quantum circuit
-    for _ in range(num_gates):
-        gate_name = random.choice(["R", "P"] if num_qudits >= 2 else ["R", "P"])
-        qudit_index = random.randrange(num_qudits)
-        if gate_name == "SUM":
-            target_index = random.choice([i for i in range(num_qudits) if i != qudit_index])
-            qc.add_gate(gate_name, qudit_index, target_index)
-        else:
-            qc.add_gate(gate_name, qudit_index)
+        # Initialize the statevector
+        statevec = Matrix([1 if i == 0 else 0 for i in range(d**num_qudits)])
+        # Add a series of random gates to the quantum circuit
+        for _ in range(num_gates):
+            gate_name = random.choice(["R", "P"] if num_qudits >= 2 else ["R", "P"])
+            qudit_index = random.randrange(num_qudits)
+            if gate_name == "SUM":
+                target_index = random.choice([i for i in range(num_qudits) if i != qudit_index])
+                qc.add_gate(gate_name, qudit_index, target_index)
+            else:
+                qc.add_gate(gate_name, qudit_index)
 
-        # Generate the gate matrix
-        if gate_name == "R":
-            gate_matrix = R
-        elif gate_name == "P":
-            gate_matrix = P
-        elif gate_name == "SUM":
-            gate_matrix = SUM
-        elif gate_name == "S":
-            gate_matrix = S
+            # Generate the gate matrix
+            if gate_name == "R":
+                gate_matrix = R
+            elif gate_name == "P":
+                gate_matrix = P
+            elif gate_name == "SUM":
+                gate_matrix = SUM
+            elif gate_name == "S":
+                gate_matrix = S
 
-        # Generate the list of matrices for the tensor product
-        if gate_name == "SUM":
-            matrices = [eye(d) for _ in range(num_qudits - 2)] + [gate_matrix, gate_matrix]
-        else:
-            matrices = [gate_matrix if i == qudit_index else eye(d) for i in range(num_qudits)]
-        # Calculate the tensor product of the matrices
-        tensor_product = matrices[0]
-        for matrix in matrices[1:]:
-            tensor_product = TensorProduct(tensor_product, matrix)
-        # Apply the gate to the statevector
-        statevec = tensor_product * statevec
+            # Generate the list of matrices for the tensor product
+            if gate_name == "SUM":
+                matrices = [eye(d) for _ in range(num_qudits - 2)] + [gate_matrix, gate_matrix]
+            else:
+                matrices = [gate_matrix if i == qudit_index else eye(d) for i in range(num_qudits)]
+            # Calculate the tensor product of the matrices
+            tensor_product = matrices[0]
+            for matrix in matrices[1:]:
+                tensor_product = TensorProduct(tensor_product, matrix)
+            # Apply the gate to the statevector
+            statevec = tensor_product * statevec
 
-     # Check if the final stabilizer stabilizes the statevector
-    qc.simulate()
-    stabilizers = []
-    for i in range(qr.size):
-        pauli_string = qr[i].pauli_string
-        stab = eye(d)
-        for char in pauli_string:
-            if char == 'X':
-                stab = stab * X
-            elif char == 'Z':
-                stab = stab * Z
-        stabilizers.append(stab)
+        # Check if the final stabilizer stabilizes the statevector
+        qc.simulate()
+        stabilizers = []
+        for i in range(qr.size):
+            pauli_string = qr[i].pauli_string
+            stab = eye(d)
+            for char in pauli_string:
+                if char == 'X':
+                    stab = stab * X
+                elif char == 'Z':
+                    stab = stab * Z
+            stabilizers.append(stab)
 
-    final_stab = stabilizers[0]
-    for stab in stabilizers[1:]:
-        final_stab = TensorProduct(final_stab, stab)
-    stabilized = discard_global_phase_state(final_stab * statevec)
-    statevec = discard_global_phase_state(statevec)
-    if stabilized != statevec:
-        print(f"Not stabilized.")
-    else:
-        print(f"Stabilized.")
-    pprint(tensor_product)
-    print(qc)
-    print(qr)
+        final_stab = stabilizers[0]
+        for stab in stabilizers[1:]:
+            final_stab = TensorProduct(final_stab, stab)
+        stabilized = discard_global_phase_state(final_stab * statevec)
+        statevec = discard_global_phase_state(statevec)
+        if not all(simplify(i) == 0 for i in (Matrix(stabilized) - Matrix(statevec))):
+            raise Exception(f"Trial {trial + 1} was not stabilized. Seed: {seed}")
 
 
-statevec_test(2, 4, 5, seed=7)
+
+
+statevec_test(2,10, 3, 10)
 
 
