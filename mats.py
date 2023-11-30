@@ -53,4 +53,5 @@ def chpt(d, n):
         return [TensorProduct(*combination) for combination in product(single_qubit_gates, gates)]
 
 if __name__ == "__main__":
-    pprint(chpt(2,2))
+    pprint(p_gate(3))
+
