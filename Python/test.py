@@ -70,10 +70,8 @@ def generate_tensor_products(X, Z, I):
 import random
 
 def statevec_test(d, trials=1, num_qudits=2, num_gates=2, seed=int(time.time())):
-    # Set the seed for the random number generator
-    random.seed(seed)
-
     for trial in range(trials):
+        random.seed(seed+trial)
         qr = QuditRegister("Test", d, num_qudits)
         qc = Circuit(qr)
         X, Z = generate_paulis(d)
@@ -131,12 +129,14 @@ def statevec_test(d, trials=1, num_qudits=2, num_gates=2, seed=int(time.time()))
             final_stab = TensorProduct(final_stab, stab)
         stabilized = discard_global_phase_state(final_stab * statevec)
         statevec = discard_global_phase_state(statevec)
+        pprint(stabilized)
+        pprint(statevec)
         if not all(simplify(i) == 0 for i in (Matrix(stabilized) - Matrix(statevec))):
             raise Exception(f"Trial {trial + 1} was not stabilized. Seed: {seed}")
 
 
 
 
-statevec_test(2,10, 3, 10)
+statevec_test(2,1, 3, 10, 1701476401)
 
 
