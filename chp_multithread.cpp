@@ -22,6 +22,7 @@ void cnot(QState *q, long b, long c)
 	c5 = c>>5;
 	pwb = q->pw[b&31];
 	pwc = q->pw[c&31];
+	#pragma omp parallel for
 	for (i = 0; i < 2*q->n; i++)
 	{
          if (q->x[i][b5]&pwb) q->x[i][c5] ^= pwc;
@@ -44,6 +45,7 @@ void hadamard(QState *q, long b)
 
 	b5 = b>>5;
 	pw = q->pw[b&31];
+	#pragma omp parallel for private(tmp)
 	for (i = 0; i < 2*q->n; i++)
 	{
          tmp = q->x[i][b5];
@@ -61,6 +63,7 @@ void phase(QState *q, long b)
 
 	b5 = b>>5;
 	pw = q->pw[b&31];
+	#pragma omp parallel for
 	for (i = 0; i < 2*q->n; i++)
 	{
          if ((q->x[i][b5]&pw) && (q->z[i][b5]&pw)) q->r[i] = (q->r[i]+2)%4;
@@ -116,48 +119,52 @@ void error(int k)
 
 int measure(QState *q, long b, int sup)
 {
-	int ran = 0;
-	long i;
-	long p; // pivot row in stabilizer
-	long m; // pivot row in destabilizer
-	long b5;
-	unsigned long pw;
+    int ran = 0;
+    long i;
+    long p; // pivot row in stabilizer
+    long m; // pivot row in destabilizer
+    long b5;
+    unsigned long pw;
+    bool break_flag = false;
 
-	b5 = b>>5;
-	pw = q->pw[b&31];
-	for (p = 0; p < q->n; p++)         // loop over stabilizer generators
-	{
-         if (q->x[p+q->n][b5]&pw) ran = 1;         // if a Zbar does NOT commute with Z_b (the
-         if (ran) break;                                                 // operator being measured), then outcome is random
-	}
+    b5 = b>>5;
+    pw = q->pw[b&31];
+    for (p = 0; p < q->n; p++)         // loop over stabilizer generators
+    {
+		if (break_flag) continue;
+        if (q->x[p+q->n][b5]&pw) ran = 1;         // if a Zbar does NOT commute with Z_b (the
+        if (ran) break_flag = true;  // operator being measured), then outcome is random
+    }
 
-	// If outcome is indeterminate
-	if (ran)
-	{
-         rowcopy(q, p, p + q->n);                         // Set Xbar_p := Zbar_p
-         rowset(q, p + q->n, b + q->n);                 // Set Zbar_p := Z_b
-         q->r[p + q->n] = 2*(rand()%2);                 // moment of quantum randomness
-         for (i = 0; i < 2*q->n; i++)                 // Now update the Xbar's and Zbar's that don't commute with
-                 if ((i!=p) && (q->x[i][b5]&pw))         // Z_b
-                         rowmult(q, i, p);
-         if (q->r[p + q->n]) return 3;
-         else return 2;
-	}
+    // If outcome is indeterminate
+    if (ran)
+    {
+        rowcopy(q, p, p + q->n);                         // Set Xbar_p := Zbar_p
+        rowset(q, p + q->n, b + q->n);                 // Set Zbar_p := Z_b
+        q->r[p + q->n] = 2*(rand()%2);                 // moment of quantum randomness
+        #pragma omp parallel for
+        for (i = 0; i < 2*q->n; i++)                 // Now update the Xbar's and Zbar's that don't commute with
+            if ((i!=p) && (q->x[i][b5]&pw))         // Z_b
+                rowmult(q, i, p);
+        if (q->r[p + q->n]) return 3;
+        else return 2;
+    }
 
-	// If outcome is determinate
-	if ((!ran) && (!sup))
-	{
-         for (m = 0; m < q->n; m++)                         // Before we were checking if stabilizer generators commute
-                 if (q->x[m][b5]&pw) break;                 // with Z_b; now we're checking destabilizer generators
-         rowcopy(q, 2*q->n, m + q->n);
-         for (i = m+1; i < q->n; i++)
-                 if (q->x[i][b5]&pw)
-                         rowmult(q, 2*q->n, i + q->n);
-         if (q->r[2*q->n]) return 1;
-         else return 0;
-	}
+    // If outcome is determinate
+    if ((!ran) && (!sup))
+    {
+        for (m = 0; m < q->n; m++)                         // Before we were checking if stabilizer generators commute
+            if (q->x[m][b5]&pw) break;                 // with Z_b; now we're checking destabilizer generators
+        rowcopy(q, 2*q->n, m + q->n);
+        #pragma omp parallel for
+        for (i = m+1; i < q->n; i++)
+            if (q->x[i][b5]&pw)
+                rowmult(q, 2*q->n, i + q->n);
+        if (q->r[2*q->n]) return 1;
+        else return 0;
+    }
 
-	return 0;
+    return 0;
 }
 
 void readprog(QProg *h, char *fn, char *params)
