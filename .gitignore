@@ -3,3 +3,6 @@ __pycache__
 *.o
 *
 !*.*
+.vscode/launch.json
+.vscode/settings.json
+.vscode/tasks.json

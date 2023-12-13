@@ -2,14 +2,43 @@
   "version": "0.2.0",
   "configurations": [
     {
+      "name": "C/C++: g++ build and debug active file",
+      "type": "cppdbg",
+      "request": "launch",
+      "program": "${workspaceFolder}/chp_simdmultithread",
+      "args": [
+        "-t",
+        "test.txt"
+      ],
+      "stopAtEntry": false,
+      "cwd": "${workspaceFolder}",
+      "environment": [],
+      "externalConsole": false,
+      "MIMode": "gdb",
+      "setupCommands": [
+        {
+          "description": "Enable pretty-printing for gdb",
+          "text": "-enable-pretty-printing",
+          "ignoreFailures": true
+        },
+        {
+          "description": "Set Disassembly Flavor to Intel",
+          "text": "-gdb-set disassembly-flavor intel",
+          "ignoreFailures": true
+        }
+      ],
+      "preLaunchTask": "Compile with AVX-512",
+      "miDebuggerPath": "/usr/bin/gdb"
+    },
+    {
       "name": "C/C++ Runner: Debug Session",
       "type": "cppdbg",
       "request": "launch",
       "args": [],
       "stopAtEntry": false,
       "externalConsole": false,
-      "cwd": "/home/stevenn/projects/Qutrits/.vscode",
-      "program": "/home/stevenn/projects/Qutrits/.vscode/build/Debug/outDebug",
+      "cwd": "/home/stevenn/projects/Qutrits",
+      "program": "/home/stevenn/projects/Qutrits/build/Debug/outDebug",
       "MIMode": "gdb",
       "miDebuggerPath": "gdb",
       "setupCommands": [

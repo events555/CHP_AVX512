@@ -13,7 +13,6 @@
 #include <time.h>
 
 
-
 #define         CNOT		0
 #define         HADAMARD	1
 #define         PHASE		2
