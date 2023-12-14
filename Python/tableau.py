@@ -66,18 +66,16 @@ class Program:
             else:
                 for stabilizer in self.stabilizer_tableau.tableau:
                     self.stabilizer_tableau.conjugate(gate.qudit_index, gate.qudit_target_index, gate.name, stabilizer)
-            print(self.stabilizer_tableau)
-            print("\n")
+    def get_stabilizer(self, row):
+        return self.stabilizer_tableau.tableau[row]
 
-table = Tableau(2, 2)
-qudit_register = QuditRegister("Qudit Register", 2, 2)
-circuit = Circuit(qudit_register)
-circuit.add_gate("R", 0)
-circuit.add_gate("P", 0)
-circuit.add_gate("SUM", 0, 1)
-print(circuit) 
+# table = Tableau(3, 2)
+# qudit_register = QuditRegister("Qudit Register", 3, 2)
+# circuit = Circuit(qudit_register)
+# circuit.add_gate("R", 0)
+# print(circuit) 
 
-program = Program(table, circuit)
-program.simulate()
-
+# program = Program(table, circuit)
+# program.simulate()
+# print(table)
 #Revelation... page 3 of Gottesman paper says that XZ has order 2d for d=2 so it needs a factor of i, but d=odd does not

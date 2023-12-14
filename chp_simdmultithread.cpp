@@ -7,6 +7,7 @@
 #include <sstream>
 #include <fstream>
 #include "quantum.cpp"
+#include "gates.cpp"
 #include <bitset>
 //#include "tableau.cpp"
 
@@ -39,17 +40,17 @@ void runprog(struct QProg *h, struct QState *q)
          //if (h->op[t]==CNOT) cnot(q,h->control_qubit[t],h->target_qubit[t]);
          if (h->op[t]==HADAMARD) hadamard(q,h->control_qubit[t]);
          if (h->op[t]==PHASE) phase(q,h->control_qubit[t]);
-         if (h->op[t]==MEASURE)
-         {
-                 not_measured = 0;
-                 m = measure(q,h->control_qubit[t],h->SUPPRESSM);
-                 if (!h->SILENT)
-                 {
-                         printf("\nOutcome of measuring qubit %ld: ", h->b[t]);
-                         if (m>1) printf("%d (random)", m-2);
-                         else printf("%d", m);
-                 }
-         }
+        //  if (h->op[t]==MEASURE)
+        //  {
+        //          not_measured = 0;
+        //          m = measure(q,h->control_qubit[t],h->SUPPRESSM);
+        //          if (!h->SILENT)
+        //          {
+        //                  printf("\nOutcome of measuring qubit %ld: ", h->b[t]);
+        //                  if (m>1) printf("%d (random)", m-2);
+        //                  else printf("%d", m);
+        //          }
+        //  }
 	}
 	printf("\n");
 	// if (h->DISPTIME)
