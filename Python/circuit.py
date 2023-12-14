@@ -54,6 +54,11 @@ class Circuit:
         gate = Gate(gate_name, qudit_index, target_index)
         self.gates.append(gate)
     def __str__(self):
-        gate_list = "\n".join([f"Gate: {gate.name}, Qudit Index: {gate.qudit_index}, Target Index: {gate.qudit_target_index}" for gate in self.gates])
-        return f"Circuit:\n{gate_list}"
-    
+        gate_list = []
+        for gate in self.gates:
+            gate_str = "Gate: {:<3} | Qudit Index: {}".format(gate.name, gate.qudit_index)
+            if gate.qudit_target_index is not None:
+                gate_str += " Target Index: {}".format(gate.qudit_target_index)
+            gate_list.append(gate_str)
+        return "\n".join(gate_list)
+

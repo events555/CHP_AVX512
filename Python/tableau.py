@@ -1,5 +1,4 @@
 from circuit import QuditRegister, Circuit
-import re
 
 class Tableau:
     def __init__(self, dimension, num_qudits):
@@ -37,10 +36,9 @@ class Tableau:
                 x_count = control_string.count('X')
                 z_count = target_string.count('Z')
                 target_string += 'X' * x_count
-                control_string += 'Z' * z_count
+                control_string += 'Z' * z_count * (self.dimension - 1)
                 stabilizer.set(control_string, qudit_index)
                 stabilizer.set(target_string, qudit_target_index)
-
         else:
             raise ValueError(f"No targets specified.")
     def check_commute(self, stab1, stab2):
@@ -66,19 +64,19 @@ class Program:
                 for stabilizer in self.stabilizer_tableau.tableau:
                     self.stabilizer_tableau.conjugate(gate.qudit_index, gate.qudit_target_index, gate.name, stabilizer)
     def get_stabilizer(self, row):
-        return self.stabilizer_tableau.tableau[row]
+        return self.stabilizer_tableau[row]
 
-table = Tableau(3, 2)
-qudit_register = QuditRegister("Qudit Register", 3, 2)
-circuit = Circuit(qudit_register)
-circuit.add_gate("R", 0)
-circuit.add_gate("SUM", 0, 1)
-print(circuit) 
+# table = Tableau(3, 2)
+# qudit_register = QuditRegister("Qudit Register", 3, 2)
+# circuit = Circuit(qudit_register)
+# circuit.add_gate("R", 0)
+# circuit.add_gate("SUM", 0, 1)
+# print(circuit) 
 
-program = Program(table, circuit)
-print(table)
+# program = Program(table, circuit)
+# print(table)
 
-print("\nAfter simulation:")
-program.simulate()
-print(table)
+# print("\nAfter simulation:")
+# program.simulate()
+# print(table)
 #Revelation... page 3 of Gottesman paper says that XZ has order 2d for d=2 so it needs a factor of i, but d=odd does not
