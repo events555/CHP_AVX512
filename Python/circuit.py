@@ -15,7 +15,6 @@ class QuditRegister:
             return f"{self.name}: {tensor_product}"
 
     def set(self, pauli, index=None):
-        print(pauli.split())
         if index is None:
             pauli_split = pauli.split()
             for i in range(self.num_qudits):

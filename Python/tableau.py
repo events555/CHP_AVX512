@@ -25,10 +25,10 @@ class Tableau:
         if qudit_target_index == None:
             if gate == "R":
                 replacements = {'X': 'Z', 'Z': 'X' * (self.dimension - 1)}
-                stabilizer.pauli_product[qudit_index] = ''.join([replacements.get(c, c) for c in stabilizer.pauli_product[qudit_index]])
+                stabilizer.set(''.join([replacements.get(c, c) for c in stabilizer.pauli_product[qudit_index]]), qudit_index)
             elif gate == "P":
                 replacements = {'X': 'XZ', 'Z': 'Z'}
-                stabilizer.pauli_product[qudit_index] = ''.join([replacements.get(c, c) for c in stabilizer.pauli_product[qudit_index]])
+                stabilizer.set(''.join([replacements.get(c, c) for c in stabilizer.pauli_product[qudit_index]]), qudit_index)
         else:
             raise ValueError(f"Two qudit gates are not supported yet.")
 class Program:
@@ -41,8 +41,6 @@ class Program:
                 self.stabilizer_tableau.conjugate(gate.qudit_index, gate.qudit_target_index, gate.name, stabilizer)
 
 table = Tableau(2, 4)
-print(table)
-
 qudit_register = QuditRegister("Qudit Register", 2, 4)
 circuit = Circuit(qudit_register)
 circuit.add_gate("R", 0)
