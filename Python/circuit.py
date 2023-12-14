@@ -27,9 +27,6 @@ class QuditRegister:
             simplified = self.simplify_string(self.pauli_product[index], self.dimension)
             if simplified is not None:
                 self.pauli_product = simplified
-
-
-        
     def simplify_string(self, s, d):
         s = re.sub('X'*d, '' if len(s) > d else 'I', s)
         s = re.sub('Z'*d, '' if len(s) > d else 'I', s)
@@ -47,7 +44,7 @@ class Circuit:
         self.qudit_register = qudit_register
         self.gates = []
     def add_gate(self, gate_name, qudit_index, target_index=None):
-        if gate_name not in ["R", "P", "SUM"]:
+        if gate_name not in ["R", "P", "SUM","MEASURE"]:
             raise ValueError(f"Invalid gate: {gate_name}")
         elif gate_name == "SUM" and target_index not in range(self.qudit_register.num_qudits):
             raise ValueError(f"Invalid target index: {target_index}")
