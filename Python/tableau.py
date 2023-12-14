@@ -5,8 +5,8 @@ class Tableau:
     def __init__(self, dimension, num_qudits):
         self.dimension = dimension
         self.num_qudits = num_qudits
-        self.tableau = [QuditRegister("Stabilizer %d" % i, dimension, num_qudits) for i in range(num_qudits)]
-        self.tableau.extend([QuditRegister("Destabilizer %d" % i, dimension, num_qudits) for i in range(num_qudits)])
+        self.tableau = [QuditRegister("Destabilizer %d" % i, dimension, num_qudits) for i in range(num_qudits)]
+        self.tableau.extend([QuditRegister("Stabilizer %d" % i, dimension, num_qudits) for i in range(num_qudits)])
         self.phase = [0 for _ in range(2*num_qudits)]
         for i in range(num_qudits):
             s = ['I'] * num_qudits  # Start with a list of 'I's
@@ -22,6 +22,7 @@ class Tableau:
     def conjugate(self, qudit_index, qudit_target_index, gate, stabilizer):
         # Conjugate's According to Gottesman's Higher Dimensional Mappings
         # https://arxiv.org/abs/quant-ph/9802007
+        
         if qudit_target_index == None:
             if gate == "R":
                 replacements = {'X': 'Z', 'Z': 'X' * (self.dimension - 1)}
@@ -37,11 +38,11 @@ class Program:
         self.circuit = circuit
     def simulate(self):
         for stabilizer in self.stabilizer_tableau.tableau:
-            for gate in self.circuit.gates:
+            for gate in self.circuit.gates: 
                 self.stabilizer_tableau.conjugate(gate.qudit_index, gate.qudit_target_index, gate.name, stabilizer)
 
-table = Tableau(2, 4)
-qudit_register = QuditRegister("Qudit Register", 2, 4)
+table = Tableau(2, 2)
+qudit_register = QuditRegister("Qudit Register", 2, 2)
 circuit = Circuit(qudit_register)
 circuit.add_gate("R", 0)
 circuit.add_gate("P", 1)
