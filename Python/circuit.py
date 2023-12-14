@@ -21,17 +21,18 @@ class QuditRegister:
                 self.pauli_product[i] = pauli_split[i]
                 simplified = self.simplify_string(self.pauli_product[i], self.dimension)
                 if simplified is not None:
-                    self.pauli_product = simplified
+                    self.pauli_product[i] = simplified
         else:
             self.pauli_product[index] = pauli
             simplified = self.simplify_string(self.pauli_product[index], self.dimension)
             if simplified is not None:
-                self.pauli_product = simplified
+                self.pauli_product[index] = simplified
     def simplify_string(self, s, d):
         s = re.sub('X'*d, '' if len(s) > d else 'I', s)
         s = re.sub('Z'*d, '' if len(s) > d else 'I', s)
         if 'X' in s or 'Z' in s:
-            s = s.replace('I', '')
+            s = re.sub('I','', s)
+        return s
 
 class Gate:
     def __init__(self, name, qudit, target=None):

@@ -32,16 +32,15 @@ class Tableau:
                 stabilizer.set(''.join([replacements.get(c, c) for c in stabilizer.pauli_product[qudit_index]]), qudit_index)
         elif qudit_target_index != None:
             if gate == "SUM":
-                pass
-                # control_string = list(stabilizer.pauli_product[qudit_index])
-                # target_string = list(stabilizer.pauli_product[qudit_target_index])
-                # for i, (c_control, c_target) in enumerate(zip(control_string, target_string)):
-                #     if c_control == 'X':
-                #         target_string[i] += 'X'
-                #     if c_target == 'Z':
-                #         control_string[i] += 'Z' * (self.dimension - 1)
-                # stabilizer.set(''.join(control_string), qudit_index)
-                # stabilizer.set(''.join(target_string), qudit_target_index)
+                control_string = stabilizer.pauli_product[qudit_index]
+                target_string = stabilizer.pauli_product[qudit_target_index]
+                x_count = control_string.count('X')
+                z_count = target_string.count('Z')
+                target_string += 'X' * x_count
+                control_string += 'Z' * z_count
+                stabilizer.set(control_string, qudit_index)
+                stabilizer.set(target_string, qudit_target_index)
+
         else:
             raise ValueError(f"No targets specified.")
     def check_commute(self, stab1, stab2):
@@ -69,13 +68,17 @@ class Program:
     def get_stabilizer(self, row):
         return self.stabilizer_tableau.tableau[row]
 
-# table = Tableau(3, 2)
-# qudit_register = QuditRegister("Qudit Register", 3, 2)
-# circuit = Circuit(qudit_register)
-# circuit.add_gate("R", 0)
-# print(circuit) 
+table = Tableau(3, 2)
+qudit_register = QuditRegister("Qudit Register", 3, 2)
+circuit = Circuit(qudit_register)
+circuit.add_gate("R", 0)
+circuit.add_gate("SUM", 0, 1)
+print(circuit) 
 
-# program = Program(table, circuit)
-# program.simulate()
-# print(table)
+program = Program(table, circuit)
+print(table)
+
+print("\nAfter simulation:")
+program.simulate()
+print(table)
 #Revelation... page 3 of Gottesman paper says that XZ has order 2d for d=2 so it needs a factor of i, but d=odd does not

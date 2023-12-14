@@ -58,6 +58,7 @@ def discard_global_phase_state(mat):
 
 def statevec_test(d, trials=1, num_qudits=2, num_gates=2, seed=int(time.time())):
     for trial in range(trials):
+        print("Trial %d" % trial)
         # Initialize the quantum program
         qr = QuditRegister("Trial %d" % trial, d, num_qudits)
         qc = Circuit(qr)
@@ -95,11 +96,12 @@ def statevec_test(d, trials=1, num_qudits=2, num_gates=2, seed=int(time.time()))
         # Check if the final stabilizer stabilizes the statevector
         prog = Program(table, qc)
         prog.simulate()
+        print(prog.stabilizer_tableau)
+        print(qc)
         pauli_map = {'I': eye(d), 'X': X, 'Z': Z}
         pauli_matrices = []
         for j in range(num_qudits, 2*num_qudits):
             stabilizer = prog.get_stabilizer(j)
-            print(stabilizer.pauli_product)
             for matrix in stabilizer.pauli_product:
                 pauli_stabilizer = eye(d)
                 for char in matrix:
@@ -108,6 +110,9 @@ def statevec_test(d, trials=1, num_qudits=2, num_gates=2, seed=int(time.time()))
             pauli_stabilizer = pauli_matrices[0]
             for i in range(1, num_qudits):
                 pauli_stabilizer = TensorProduct(pauli_stabilizer, pauli_matrices[i]).applyfunc(nsimplify)
+            print("Stabilizer %d" % (j - num_qudits))
+            pprint(statevec)
+            pprint(pauli_stabilizer)
             stabilized = discard_global_phase_state(pauli_stabilizer * statevec)
             statevec = discard_global_phase_state(statevec)
             if not all(simplify(i) == 0 for i in (Matrix(stabilized) - Matrix(statevec))):
@@ -115,6 +120,6 @@ def statevec_test(d, trials=1, num_qudits=2, num_gates=2, seed=int(time.time()))
 
 
 
-statevec_test(2, 1, 4, 8, 1702577339)
+#statevec_test(2, 1, 4, 8, 1702577339)
 
 
