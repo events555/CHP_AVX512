@@ -5,7 +5,6 @@ from circuit import QuditRegister, Circuit
 from tableau import Tableau, Program
 import time
 import random
-import logging
 
 def generate_paulis(d):
     """
