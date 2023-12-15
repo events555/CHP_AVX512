@@ -1,4 +1,8 @@
 __pycache__
 .vscode
-rand.chp
-chp
+*.o
+*
+!*.*
+.vscode/launch.json
+.vscode/settings.json
+.vscode/tasks.json

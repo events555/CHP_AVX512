@@ -1,17 +1,26 @@
 from sympy import *
 from sympy.physics.quantum import TensorProduct
 from itertools import product
-from circuit import Qudit, QuditRegister, Gate, Circuit
-from compute_alg import discard_global_phase_state
+from circuit import QuditRegister, Circuit
+from tableau import Tableau, Program
 import time
+import random
 
 def generate_paulis(d):
-    # Shift Matrix
+    """
+    Generate the Pauli matrices for a given dimension.
+
+    Parameters:
+    - d (int): The dimension of the matrices.
+
+    Returns:
+    - X (Matrix): The shift matrix.
+    - Z (Matrix): The clock matrix.
+    """
     X = Matrix.zeros(d)
     for i in range(d):
         X[i, (i-1)%d] = 1
 
-    # Clock Matrix
     Z = Matrix.eye(d)
     for i in range(d):
         Z[i, i] = exp(2*pi*I*i/d)
@@ -19,124 +28,133 @@ def generate_paulis(d):
     return X, Z
 
 def generate_clifford(d):
-    # P Gate
+    """
+    Generate the Clifford gates for a given dimension.
+
+    Parameters:
+    - d (int): The dimension of the gates.
+
+    Returns:
+    - P (Matrix): The P gate.
+    - R (Matrix): The DFT matrix.
+    - SUM (Matrix): The SUM gate. (no clue why transposed)
+    """
     P = Matrix.eye(d)
     if d == 2:
         P[d-1, d-1] = exp(I*pi/2)
     else:
         P[d-1, d-1] = exp(I*2*pi/d)
 
-    # DFT Matrix
     R = Matrix.zeros(d)
     for m in range(d):
         for n in range(d):
             R[m, n] = 1/sqrt(d) * exp(2*pi*I*m*n/d)
 
-    # SUM Gate
     SUM = Matrix.zeros(d**2)
     for i, j in product(range(d), repeat=2):
         SUM[d*i + j, d*i + (i+j)%d] = 1
     SUM = SUM.reshape(d**2, d**2)
+    return P, R, SUM.transpose()
 
-    # S Gate
-    S = Matrix.zeros(d)
-    for a in range(d):
-        for b in range(d):
-            if a*b % d == 1:
-                S[a, a] = 1
-                break
+def discard_global_phase_state(mat):
+    """
+    Discard the global phase from a matrix.
 
-    return P, R, SUM, S
+    Parameters:
+    - mat (Matrix): The input matrix.
 
-def generate_powers(X, Z, d):
-    X_list = [(X**i).applyfunc(nsimplify) for i in range(1, d)]
-    Z_list = [(Z**i).applyfunc(nsimplify) for i in range(1, d)]
+    Returns:
+    - mat_simplify (Matrix): The matrix with the global phase discarded.
+    """
+    mat = mat.as_mutable()
+    global_phase = None
+    for i in range(mat.rows):
+        if N(mat[i], 15, chop=True) != 0:
+            global_phase = arg(mat[i])
+            break
+    if global_phase is not None:
+        for i in range(mat.rows):
+            mat[i] = mat[i] * exp(-I * global_phase)
+    mat_num = N(mat, 15, chop=True)
+    mat_simplify = mat_num.applyfunc(nsimplify)
+    return mat_simplify.as_immutable()
 
-    return X_list, Z_list
+def statevec_test(d, trials=1, num_qudits=2, num_gates=2, seed=int(time.time()), print_circuit=False, print_statevec=False, print_stabilizer=False):
+    """
+    Perform a statevector comparison on a random quantum circuit and equivalent tableau.
 
-def generate_tensor_products(X, Z, I):
-    # Generate tensor products
-    XI = TensorProduct(X, I)
-    IX = TensorProduct(I, X)
-    ZI = TensorProduct(Z, I)
-    IZ = TensorProduct(I, Z)
-    XX = TensorProduct(X, X)
-    ZZ = TensorProduct(Z, Z)
-    XZ = TensorProduct(X, Z)
-    ZX = TensorProduct(Z, X)
-    Z_InvZ = TensorProduct(Z.inv(), Z)
-    return XI, IX, ZI, IZ, XX, ZZ, XZ, ZX, Z_InvZ
+    Parameters:
+    - d (int): The dimension of the qudits.
+    - trials (int): The number of trials to run.
+    - num_qudits (int): The number of qudits in the circuit.
+    - num_gates (int): The number of gates to apply.
+    - seed (int): The seed for the random number generator.
+    - print_circuit (bool): Whether to print the circuit.
+    - print_statevec (bool): Whether to print the statevector.
+    - print_stabilizer (bool): Whether to print the Pauli stabilizers.
 
-import random
-
-def statevec_test(d, trials=1, num_qudits=2, num_gates=2, seed=int(time.time())):
+    Raises:
+    - Exception: If the final stabilizer does not stabilize the statevector.
+    """
     for trial in range(trials):
-        random.seed(seed+trial)
-        qr = QuditRegister("Test", d, num_qudits)
+        qr = QuditRegister("Trial %d" % trial, d, num_qudits)
         qc = Circuit(qr)
+        table = Tableau(d, num_qudits)
+        random.seed(seed+trial)
         X, Z = generate_paulis(d)
-        P, R, SUM, S = generate_clifford(d)
-
-        # Initialize the statevector
+        P, R, SUM = generate_clifford(d)
         statevec = Matrix([1 if i == 0 else 0 for i in range(d**num_qudits)])
-        # Add a series of random gates to the quantum circuit
         for _ in range(num_gates):
-            gate_name = random.choice(["R", "P"] if num_qudits >= 2 else ["R", "P"])
-            qudit_index = random.randrange(num_qudits)
+            gate_name = random.choice(["R", "P", "SUM"] if num_qudits >= 2 else ["R", "P"])
             if gate_name == "SUM":
-                target_index = random.choice([i for i in range(num_qudits) if i != qudit_index])
+                qudit_index = random.randrange(num_qudits-1)
+                target_index = qudit_index + 1
                 qc.add_gate(gate_name, qudit_index, target_index)
             else:
+                qudit_index = random.randrange(num_qudits)
                 qc.add_gate(gate_name, qudit_index)
-
-            # Generate the gate matrix
-            if gate_name == "R":
-                gate_matrix = R
-            elif gate_name == "P":
-                gate_matrix = P
-            elif gate_name == "SUM":
-                gate_matrix = SUM
-            elif gate_name == "S":
-                gate_matrix = S
-
-            # Generate the list of matrices for the tensor product
+            
+            gate_map = {'R': R, 'P': P, 'SUM': SUM}
             if gate_name == "SUM":
-                matrices = [eye(d) for _ in range(num_qudits - 2)] + [gate_matrix, gate_matrix]
+                matrices = [gate_map[gate_name] if i == qudit_index else eye(d) for i in range(num_qudits) if i != target_index]
             else:
-                matrices = [gate_matrix if i == qudit_index else eye(d) for i in range(num_qudits)]
-            # Calculate the tensor product of the matrices
+                matrices = [gate_map[gate_name] if i == qudit_index else eye(d) for i in range(num_qudits)]
             tensor_product = matrices[0]
             for matrix in matrices[1:]:
                 tensor_product = TensorProduct(tensor_product, matrix)
-            # Apply the gate to the statevector
-            statevec = tensor_product * statevec
+            statevec = (tensor_product * statevec).applyfunc(nsimplify)
 
-        # Check if the final stabilizer stabilizes the statevector
-        qc.simulate()
-        stabilizers = []
-        for i in range(qr.size):
-            pauli_string = qr[i].pauli_string
-            stab = eye(d)
-            for char in pauli_string:
-                if char == 'X':
-                    stab = stab * X
-                elif char == 'Z':
-                    stab = stab * Z
-            stabilizers.append(stab)
+        prog = Program(table, qc)
+        prog.simulate()
+        pauli_map = {'I': eye(d), 'X': X, 'Z': Z}
+        if print_circuit or print_statevec:
+            print("Trial %d" % trial)
+        if print_circuit:
+            print(prog.stabilizer_tableau)
+            print(qc)
+        if print_statevec:
+            pprint(statevec)
+        for j in range(num_qudits, 2*num_qudits):
+            pauli_matrices = []
+            stabilizer = prog.get_stabilizer(j)
+            for matrix in stabilizer.pauli_product:
+                pauli_stabilizer = eye(d)
+                for char in matrix:
+                    pauli_stabilizer = pauli_stabilizer*pauli_map[char]
+                pauli_matrices.append(pauli_stabilizer)
+            pauli_stabilizer = pauli_matrices[0]
+            for i in range(1, num_qudits):
+                pauli_stabilizer = TensorProduct(pauli_stabilizer, pauli_matrices[i]).applyfunc(nsimplify)
+            if print_stabilizer:
+                print("\nStabilizer %d" % (j-num_qudits))
+                pprint(pauli_stabilizer)
+            stabilized = discard_global_phase_state(pauli_stabilizer * statevec)
+            statevec = discard_global_phase_state(statevec)
+            if not all(simplify(i) == 0 for i in (Matrix(stabilized) - Matrix(statevec))):
+                if print_statevec:
+                    pprint(stabilized)
+                raise Exception(f"Trial {trial + 1} was not stabilized. Seed: {seed}")
 
-        final_stab = stabilizers[0]
-        for stab in stabilizers[1:]:
-            final_stab = TensorProduct(final_stab, stab)
-        stabilized = discard_global_phase_state(final_stab * statevec)
-        statevec = discard_global_phase_state(statevec)
-        pprint(stabilized)
-        pprint(statevec)
-        if not all(simplify(i) == 0 for i in (Matrix(stabilized) - Matrix(statevec))):
-            raise Exception(f"Trial {trial + 1} was not stabilized. Seed: {seed}")
-
-
-
-
-statevec_test(2,1, 3, 10, 1701476401)
+statevec_test(3, 3, 3, 10)
 
 
