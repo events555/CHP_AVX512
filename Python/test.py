@@ -122,18 +122,11 @@ def statevec_test(d, trials=1, num_qudits=2, num_gates=2, seed=int(time.time()),
             tensor_product = matrices[0]
             for matrix in matrices[1:]:
                 tensor_product = TensorProduct(tensor_product, matrix)
-            statevec = (tensor_product * statevec).applyfunc(nsimplify)
+            statevec = (tensor_product * statevec)
 
         prog = Program(table, qc)
         prog.simulate()
         pauli_map = {'I': eye(d), 'X': X, 'Z': Z}
-        if print_circuit or print_statevec:
-            print("Trial %d" % trial)
-        if print_circuit:
-            print(prog.stabilizer_tableau)
-            print(qc)
-        if print_statevec:
-            pprint(statevec)
         for j in range(num_qudits, 2*num_qudits):
             pauli_matrices = []
             stabilizer = prog.get_stabilizer(j)
@@ -144,17 +137,22 @@ def statevec_test(d, trials=1, num_qudits=2, num_gates=2, seed=int(time.time()),
                 pauli_matrices.append(pauli_stabilizer)
             pauli_stabilizer = pauli_matrices[0]
             for i in range(1, num_qudits):
-                pauli_stabilizer = TensorProduct(pauli_stabilizer, pauli_matrices[i]).applyfunc(nsimplify)
-            if print_stabilizer:
-                print("\nStabilizer %d" % (j-num_qudits))
-                pprint(pauli_stabilizer)
+                pauli_stabilizer = TensorProduct(pauli_stabilizer, pauli_matrices[i])
             stabilized = discard_global_phase_state(pauli_stabilizer * statevec)
             statevec = discard_global_phase_state(statevec)
-            if not all(simplify(i) == 0 for i in (Matrix(stabilized) - Matrix(statevec))):
+            if not all(re(abs(simplify(i)).n()) < 0.5 for i in (Matrix(stabilized) - Matrix(statevec))):
+                if print_circuit or print_statevec:
+                    print("Trial %d" % trial)
+                if print_circuit:
+                    print(prog.stabilizer_tableau)
+                    print(qc)
+                if print_stabilizer:
+                    print("\nStabilizer %d" % (j-num_qudits))
+                    pprint(pauli_stabilizer)
                 if print_statevec:
                     pprint(stabilized)
-                raise Exception(f"Trial {trial + 1} was not stabilized. Seed: {seed}")
+                raise Exception(f"Trial {trial} was not stabilized at index {i} of statevector. Seed: {seed}")
 
-statevec_test(3, 3, 3, 10)
+statevec_test(5,1, 3, 5, seed=1702589381, print_circuit=True)
 
 

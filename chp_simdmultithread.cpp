@@ -72,38 +72,47 @@ void runprog(struct QProg *h, struct QState *q)
  */
 void initialize_state(QState *q, int n, char *s)
 {
-    
     q->num_qubits = n;
-    q->x_bits = new __m512i*[(2*n + 1)];
-    q->z_bits = new __m512i*[(2*n + 1)];
-    q->phase = new int[2*n + 1];
+    q->over512 = (n + (512 - 1)) / 512;
+    q->x_bits = new __m512i * [(2 * n + 1)];
+    q->z_bits = new __m512i * [(2 * n + 1)];
+    q->phase = new int[2 * n + 1];
     q->pw[0] = 1;
-    q->over512 = (n/512)+1; // Changed from (n/32)+1 to (n/512)+1
     for (int i = 1; i < 32; i++)
-        q->pw[i] = 2*q->pw[i-1];
-    for (int i = 0; i < 2*n + 1; i++)
+        q->pw[i] = 2 * q->pw[i - 1];
+    for (int i = 0; i < 2 * n + 1; i++) //Iterate through rows of tableau
     {
-        q->x_bits[i] = new __m512i[q->over512]; // Changed from over32 to over512
-        q->z_bits[i] = new __m512i[q->over512]; // Changed from over32 to over512
-        for (int j = 0; j < q->over512; j++)
+        q->x_bits[i] = new __m512i[q->over512]; // Each row needs ceil(n/512) __m512i's to store the qubits
+        q->z_bits[i] = new __m512i[q->over512];
+        for (int j = 0; j < q->over512; j++) // Example: 1024 qubits needs 2 __m512i's, initialize both to all 0's for particular row
         {
-            //std::cout << "i: " << i << " j: " << j << "\n";
             q->x_bits[i][j] = _mm512_set1_epi64(0);
             q->z_bits[i][j] = _mm512_set1_epi64(0);
         }
-        if (i < n){
-            q->x_bits[i][i>>6] = _mm512_set1_epi64(q->pw[i&63]); // Changed from i>>5 to i>>6 and i&31 to i&63
-            //print_m512i(q->x_bits[i][i>>6]);
+        if (i < n) { // If you are in the destabilizers, set the x bit (top left of tableau)
+            int col_index = i >> 9; // Calculate the row index in __m512i
+            int int_index = i & 31; // Calculate the bit index within the __m512i
+            int array[16] = {0, 0, 0, 0, 0, 0, 0, 0,
+                             0, 0, 0, 0, 0, 0, 0, 0};
+            array[int_index / 32] = q->pw[int_index];
+            q->x_bits[i][col_index] = _mm512_loadu_si512(array);
+            print_m512i(q->x_bits[i][col_index]);
         }
-        else if (i < 2*n) {
-            q->z_bits[i][(i-n)>>6] = _mm512_set1_epi64(q->pw[(i-n)&63]); // Changed from i>>5 to i>>6 and i&31 to i&63
-            //print_m512i(q->z_bits[i][i>>6]);
+        else if (i < 2 * n) { // If you are in the stabilizers, set the z bit (bottom right of tableau)
+            int col_index = (i - n) >> 9; // Calculate the row index in __m512i
+            int int_index = (i-n) & 31; // Calculate the bit index within the __m512i
+            int array[16] = {0, 0, 0, 0, 0, 0, 0, 0,
+                             0, 0, 0, 0, 0, 0, 0, 0};
+            array[int_index / 32] = q->pw[int_index];
+            q->z_bits[i][col_index] = _mm512_loadu_si512(array);
+            print_m512i(q->z_bits[i][col_index]);
         }
         q->phase[i] = 0;
     }
     std::cout << "Initialized state with " << n << " qubits.\n";
     return;
 }
+
 
 /**
  * Reads a quantum program from a text file and populates the given QProg object.
@@ -199,12 +208,33 @@ void readprog(QProg *h, std::string fn, std::string params)
         if (gate == "c")
         {
             fp >> qubit1 >> qubit2;
-            // Store the CNOT gate operation in h
+            h->op[h->gate_count - 1] = CNOT;
+            h->control_qubit[h->gate_count - 1] = qubit1;
+            h->target_qubit[h->gate_count - 1] = qubit2;
         }
         else if (gate == "h")
         {
             fp >> qubit1;
-            // Store the Hadamard gate operation in h
+            h->op[h->gate_count - 1] = HADAMARD;
+            h->control_qubit[h->gate_count - 1] = qubit1;
+        }
+        else if (gate == "p")
+        {
+            fp >> qubit1;
+            h->op[h->gate_count - 1] = PHASE;
+            h->control_qubit[h->gate_count - 1] = qubit1;
+        }
+        else if (gate == "m")
+        {
+            fp >> qubit1;
+            h->op[h->gate_count - 1] = MEASURE;
+            h->control_qubit[h->gate_count - 1] = qubit1;
+        }
+        else
+        {
+            std::ostringstream oss;
+            oss << "Invalid gate: " << gate;
+            throw std::runtime_error(oss.str());
         }
     }
     fp.close();
