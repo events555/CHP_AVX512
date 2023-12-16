@@ -9,6 +9,7 @@
 #include "quantum.cpp"
 #include "gates.cpp"
 #include <bitset>
+#include <string.h>
 //#include "tableau.cpp"
 
 #define         CNOT		0
@@ -37,20 +38,22 @@ void runprog(struct QProg *h, struct QState *q)
 
 	for (int t = 0; t < h->gate_count; t++)
 	{
-         //if (h->op[t]==CNOT) cnot(q,h->control_qubit[t],h->target_qubit[t]);
+         if (h->op[t]==CNOT) cnot(q,h->control_qubit[t], h->target_qubit[t]);
          if (h->op[t]==HADAMARD) hadamard(q,h->control_qubit[t]);
          if (h->op[t]==PHASE) phase(q,h->control_qubit[t]);
-        //  if (h->op[t]==MEASURE)
-        //  {
-        //          not_measured = 0;
-        //          m = measure(q,h->control_qubit[t],h->SUPPRESSM);
-        //          if (!h->SILENT)
-        //          {
-        //                  printf("\nOutcome of measuring qubit %ld: ", h->b[t]);
-        //                  if (m>1) printf("%d (random)", m-2);
-        //                  else printf("%d", m);
-        //          }
-        //  }
+         if (h->op[t]==MEASURE)
+         {
+                 not_measured = 0;
+                 m = measure(q,h->control_qubit[t],h->SUPPRESSM);
+                 if (!h->SILENT)
+                 {
+                    std::cout << "\nOutcome of measuring qubit " << h->control_qubit[t] << ": ";
+                    if (m > 1) 
+                        std::cout << m - 2 << " (random)";
+                    else 
+                        std::cout << m;
+                 }
+         }
 	}
 	printf("\n");
 	// if (h->DISPTIME)
@@ -63,6 +66,40 @@ void runprog(struct QProg *h, struct QState *q)
 
 }
 
+void preparestate(struct QState *q, char *s) {
+	int l = strlen(s);
+	for (int b = 0; b < l; b++)
+	{
+         if (s[b]=='Z')
+         {
+                 hadamard(q,b);
+                 phase(q,b);
+                 phase(q,b);
+                 hadamard(q,b);
+         }
+         if (s[b]=='x') hadamard(q,b);
+         if (s[b]=='X')
+         {
+                 hadamard(q,b);
+                 phase(q,b);
+                 phase(q,b);
+         }
+         if (s[b]=='y')
+         {
+                 hadamard(q,b);
+                 phase(q,b);
+         }
+         if (s[b]=='Y')
+         {
+                 hadamard(q,b);
+                 phase(q,b);
+                 phase(q,b);
+                 phase(q,b);                 
+         }
+	}
+	return;
+}
+
 /**
  * Initializes the state of a quantum system.
  * 
@@ -73,7 +110,7 @@ void runprog(struct QProg *h, struct QState *q)
 void initialize_state(QState *q, int n, char *s)
 {
     q->num_qubits = n;
-    q->over512 = (n + (512 - 1)) / 512;
+    q->over512 = ((n + (512 - 1)) / 512) + 1;
     q->x_bits = new __m512i * [(2 * n + 1)];
     q->z_bits = new __m512i * [(2 * n + 1)];
     q->phase = new int[2 * n + 1];
@@ -91,25 +128,26 @@ void initialize_state(QState *q, int n, char *s)
         }
         if (i < n) { // If you are in the destabilizers, set the x bit (top left of tableau)
             int col_index = i >> 9; // Calculate the row index in __m512i
-            int int_index = i & 31; // Calculate the bit index within the __m512i
-            int array[16] = {0, 0, 0, 0, 0, 0, 0, 0,
+            int int_index = i >> 5; // Calculate the bit index within the __m512i
+            unsigned int array[16] = {0, 0, 0, 0, 0, 0, 0, 0,
                              0, 0, 0, 0, 0, 0, 0, 0};
-            array[int_index / 32] = q->pw[int_index];
+            array[int_index] = q->pw[i & 31];
             q->x_bits[i][col_index] = _mm512_loadu_si512(array);
-            print_m512i(q->x_bits[i][col_index]);
+            //print_m512i(q->x_bits[i][col_index]);
         }
         else if (i < 2 * n) { // If you are in the stabilizers, set the z bit (bottom right of tableau)
             int col_index = (i - n) >> 9; // Calculate the row index in __m512i
-            int int_index = (i-n) & 31; // Calculate the bit index within the __m512i
-            int array[16] = {0, 0, 0, 0, 0, 0, 0, 0,
+            int int_index = (i-n)>>5; // Calculate the bit index within the __m512i
+            unsigned int array[16] = {0, 0, 0, 0, 0, 0, 0, 0,
                              0, 0, 0, 0, 0, 0, 0, 0};
-            array[int_index / 32] = q->pw[int_index];
+            array[int_index] = q->pw[(i-n) & 31];
             q->z_bits[i][col_index] = _mm512_loadu_si512(array);
-            print_m512i(q->z_bits[i][col_index]);
+            //print_m512i(q->z_bits[i][col_index]);
         }
         q->phase[i] = 0;
     }
     std::cout << "Initialized state with " << n << " qubits.\n";
+    if (s) preparestate(q, s);
     return;
 }
 
@@ -200,6 +238,7 @@ void readprog(QProg *h, std::string fn, std::string params)
     char c;
     while (!fp.eof()&&(c!='#'))
         fp >> c;
+    int i = 0;
     while (!fp.eof())
     {
         std::string gate;
@@ -208,27 +247,27 @@ void readprog(QProg *h, std::string fn, std::string params)
         if (gate == "c")
         {
             fp >> qubit1 >> qubit2;
-            h->op[h->gate_count - 1] = CNOT;
-            h->control_qubit[h->gate_count - 1] = qubit1;
-            h->target_qubit[h->gate_count - 1] = qubit2;
+            h->op[i] = CNOT;
+            h->control_qubit[i] = qubit1;
+            h->target_qubit[i] = qubit2;
         }
         else if (gate == "h")
         {
             fp >> qubit1;
-            h->op[h->gate_count - 1] = HADAMARD;
-            h->control_qubit[h->gate_count - 1] = qubit1;
+            h->op[i] = HADAMARD;
+            h->control_qubit[i] = qubit1;
         }
         else if (gate == "p")
         {
             fp >> qubit1;
-            h->op[h->gate_count - 1] = PHASE;
-            h->control_qubit[h->gate_count - 1] = qubit1;
+            h->op[i] = PHASE;
+            h->control_qubit[i] = qubit1;
         }
         else if (gate == "m")
         {
             fp >> qubit1;
-            h->op[h->gate_count - 1] = MEASURE;
-            h->control_qubit[h->gate_count - 1] = qubit1;
+            h->op[i] = MEASURE;
+            h->control_qubit[i] = qubit1;
         }
         else
         {
@@ -236,6 +275,7 @@ void readprog(QProg *h, std::string fn, std::string params)
             oss << "Invalid gate: " << gate;
             throw std::runtime_error(oss.str());
         }
+        i++;
     }
     fp.close();
 
@@ -259,6 +299,7 @@ int main(int argc, char *argv[])
     else readprog(program, argv[1],NULL);
     if (argc==(3+param)) initialize_state(qubits, program->num_qubits, argv[2+param]);
     else initialize_state(qubits, program->num_qubits, NULL);
+    runprog(program, qubits);
 
     delete program;
     delete qubits;

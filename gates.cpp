@@ -1,69 +1,154 @@
 #include <immintrin.h>
 #include <cstdint>
 #include "quantum.cpp"
+#include "tableau.cpp"
+
 void hadamard(QState *q, int b)
 {
-    __m512i tmp;
-    int b6 = b / 64;
-    uint64_t pw = q->pw[b % 64];
-    __m512i pw_vec = _mm512_set1_epi64(pw);
-
+    int col_index = b >> 9;
+    int int_index = b >> 5;
+    unsigned int pw = q->pw[b&31];
+    int x_bits_array[16];
+    int z_bits_array[16];
     for (int i = 0; i < 2 * q->num_qubits; i++)
     {
-        tmp = q->x_bits[i][b6];
-        q->x_bits[i][b6] = _mm512_xor_si512(q->x_bits[i][b6], _mm512_and_si512(_mm512_xor_si512(q->x_bits[i][b6], q->z_bits[i][b6]), pw_vec));
-        q->z_bits[i][b6] = _mm512_xor_si512(q->z_bits[i][b6], _mm512_and_si512(_mm512_xor_si512(q->z_bits[i][b6], tmp), pw_vec));
+        _mm512_storeu_si512(x_bits_array, q->x_bits[i][col_index]);
+        _mm512_storeu_si512(z_bits_array, q->z_bits[i][col_index]);
 
-        if (_mm512_test_epi64_mask(q->x_bits[i][b6], pw_vec) && _mm512_test_epi64_mask(q->z_bits[i][b6], pw_vec))
-            q->phase[i] = (q->phase[i] + 2) % 4;
+         int tmp = x_bits_array[int_index];
+         x_bits_array[int_index] ^= (x_bits_array[int_index] ^ z_bits_array[int_index]) & pw;
+         z_bits_array[int_index] ^= (z_bits_array[int_index] ^ tmp) & pw;
+         if ((x_bits_array[int_index]&pw) && (z_bits_array[int_index]&pw))
+            q->phase[i] = (q->phase[i]+2)%4;
+
+        q->x_bits[i][col_index] = _mm512_loadu_si512(x_bits_array);
+        q->z_bits[i][col_index] = _mm512_loadu_si512(z_bits_array);
     }
 }
 
 void phase(QState *q, int b)
 {
-    int b6 = b / 64;
-    uint64_t pw = q->pw[b % 64];
-    __m512i pw_vec = _mm512_set1_epi64(pw);
-
+    int col_index = b >> 9;
+    int int_index = b >> 5;
+    unsigned int pw = q->pw[b&31];
+    int x_bits_array[16];
+    int z_bits_array[16];
     for (int i = 0; i < 2 * q->num_qubits; i++)
     {
-        if (_mm512_test_epi64_mask(q->x_bits[i][b6], pw_vec) && _mm512_test_epi64_mask(q->z_bits[i][b6], pw_vec))
-            q->phase[i] = (q->phase[i] + 2) % 4;
+        _mm512_storeu_si512(x_bits_array, q->x_bits[i][col_index]);
+        _mm512_storeu_si512(z_bits_array, q->z_bits[i][col_index]);
 
-        q->z_bits[i][b6] = _mm512_xor_si512(q->z_bits[i][b6], _mm512_and_si512(q->x_bits[i][b6], pw_vec));
+        if ((x_bits_array[int_index]&pw) && (z_bits_array[int_index]&pw)) 
+            q->phase[i] = (q->phase[i]+2)%4;
+        z_bits_array[int_index] ^= x_bits_array[int_index]&pw;
+
+        q->x_bits[i][col_index] = _mm512_loadu_si512(x_bits_array);
+        q->z_bits[i][col_index] = _mm512_loadu_si512(z_bits_array);
     }
 }
 
 void cnot(struct QState *q, int b, int c)
 {
     int control_index = b >> 9;
+    int control_bit = b >> 5;
     int target_index = c >> 9;
-    uint64_t pwb = q->pw[b & 31];
-    uint64_t pwc = q->pw[c & 31];
+    int target_bit = c >> 5;
+    int control_x_bits_array[16];
+    int control_z_bits_array[16];
+    int target_x_bits_array[16];
+    int target_z_bits_array[16];
+    unsigned int pwb = q->pw[b&31];
+    unsigned int pwc = q->pw[c&31];
+	for (int i = 0; i < 2*q->num_qubits; i++)
+	{
+        _mm512_storeu_si512(control_x_bits_array, q->x_bits[i][control_index]);
+        _mm512_storeu_si512(control_z_bits_array, q->z_bits[i][control_index]);
+        _mm512_storeu_si512(target_x_bits_array, q->x_bits[i][target_index]);
+        _mm512_storeu_si512(target_z_bits_array, q->z_bits[i][target_index]);
 
-    for (int i = 0; i < 2 * q->num_qubits; i++)
-    {
-        uint64_t val_x_control[8];
-        uint64_t val_z_control[8];
-        uint64_t val_x_target[8];
-        uint64_t val_z_target[8];
-        _mm512_storeu_si512(val_x_control, q->x_bits[i][control_index]);
-        _mm512_storeu_si512(val_z_control, q->z_bits[i][control_index]);
-        _mm512_storeu_si512(val_x_target, q->x_bits[i][target_index]);
-        _mm512_storeu_si512(val_z_target, q->z_bits[i][target_index]);
+        if (control_x_bits_array[control_bit]&pwb) 
+            target_x_bits_array[target_bit] ^= pwc;
+        control_x_bits_array[control_bit] = target_x_bits_array[target_bit];
+        if (target_z_bits_array[target_bit]&pwc) 
+            control_z_bits_array[control_bit] ^= pwb; //RACE CONDITION: Control_z_bits is not the same as target_z_bits even though they may refer to same AVX register
+        target_z_bits_array[target_bit] = control_z_bits_array[control_bit];
+		if ((control_x_bits_array[control_bit]&pwb) && (target_z_bits_array[target_bit]&pwc) &&
+			(target_x_bits_array[target_bit]&pwc) && (control_z_bits_array[control_bit]&pwb))
+			    q->phase[i] = (q->phase[i]+2)%4;
+		if ((control_x_bits_array[control_bit]&pwb) && (target_z_bits_array[target_bit]&pwc) &&
+			!(target_x_bits_array[target_bit]&pwc) && !(control_z_bits_array[control_bit]&pwb))
+				q->phase[i] = (q->phase[i]+2)%4;
 
-        //To do: extract the bit from the array 
+        q->x_bits[i][control_index] = _mm512_loadu_si512(control_x_bits_array);
+        q->z_bits[i][control_index] = _mm512_loadu_si512(control_z_bits_array);
+        q->x_bits[i][target_index] = _mm512_loadu_si512(target_x_bits_array);
+        q->z_bits[i][target_index] = _mm512_loadu_si512(target_z_bits_array);
+	}
+}
 
-        // _mm512_store_si512((__m512i *)q->x_bits[i][target_index], _mm512_xor_si512(target_x_bits_xor_pwc, control_x_bits_and_pwb));
-        // _mm512_store_si512((__m512i *)q->z_bits[i][control_index], _mm512_xor_si512(control_z_bits_and_pwb, target_z_bits_xor_pwc));
+int measure(struct QState *q, int b, int sup)
 
-        // __mmask8 x_bits_mask = _mm512_test_epi64_mask(control_x_bits, pwb_vec);
-        // __mmask8 z_bits_mask = _mm512_test_epi64_mask(target_z_bits, pwc_vec);
+// Measure qubit b
+// Return 0 if outcome would always be 0
+//                 1 if outcome would always be 1
+//                 2 if outcome was random and 0 was chosen
+//                 3 if outcome was random and 1 was chosen
+// sup: 1 if determinate measurement results should be suppressed, 0 otherwise
 
-        // if (x_bits_mask && z_bits_mask)
-        //     q->phase[i] = (q->phase[i] + 2) % 4;
+{
 
-        // if (x_bits_mask && z_bits_mask && _mm512_testz_epi64_mask(target_x_bits, pwc_vec) && _mm512_testz_epi64_mask(control_z_bits, pwb_vec))
-        //     q->phase[i] = (q->phase[i] + 2) % 4;
-    }
+	bool ran = 0;
+	int i;
+	int p; // pivot row in stabilizer
+	int m; // pivot row in destabilizer
+	int col_index = b>>9;
+    int int_index = b>>5;
+	unsigned int pw = q->pw[b&31];
+    int x_bits_array[16];
+	for (p = 0; p < q->num_qubits; p++)         // loop over stabilizer generators
+	{
+        _mm512_storeu_si512(x_bits_array, q->x_bits[p+q->num_qubits][col_index]);
+        if (x_bits_array[int_index]&pw) 
+            ran = true;         // if a Zbar does NOT commute with Z_b (the
+        if (ran) break;                                                 // operator being measured), then outcome is random
+	}
+
+	// If outcome is indeterminate
+	if (ran)
+	{
+        rowcopy(q, p, p + q->num_qubits);                         // Set Xbar_p := Zbar_p
+        rowset(q, p + q->num_qubits, b + q->num_qubits);                 // Set Zbar_p := Z_b
+        q->phase[p + q->num_qubits] = rand() % 2;                 // moment of quantum randomness
+        for (i = 0; i < 2*q->num_qubits; i++) {                 // Now update the Xbar's and Zbar's that don't commute with
+            _mm512_storeu_si512(x_bits_array, q->x_bits[i][col_index]);
+                if ((i!=p) && (x_bits_array[int_index]&pw))         // Z_b
+                        rowmult(q, i, p);
+        }
+        if (q->phase[p + q->num_qubits]) 
+            return 3;
+        else 
+            return 2;
+	}
+
+	// If outcome is determinate
+	if ((!ran) && (!sup))
+	{
+        for (m = 0; m < q->num_qubits; m++) {                        // Before we were checking if stabilizer generators commute
+            _mm512_storeu_si512(x_bits_array, q->x_bits[m][col_index]);         // with Z_b; now we're checking destabilizer generators
+            if (x_bits_array[int_index]&pw) break;                 // with Z_b; now we're checking destabilizer generators
+        }
+        rowcopy(q, 2*q->num_qubits, m + q->num_qubits);
+        for (i = m+1; i < q->num_qubits; i++) {
+            _mm512_storeu_si512(x_bits_array, q->x_bits[i][col_index]);
+                if (x_bits_array[int_index]&pw)
+                        rowmult(q, 2*q->num_qubits, i + q->num_qubits);
+        }
+        if (q->phase[2*q->num_qubits]) 
+            return 1;
+        else 
+            return 0;
+	}
+
+	return 0;
+
 }

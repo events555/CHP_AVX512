@@ -89,10 +89,10 @@ void cnot(struct QState *q, long b, long c)
 	pwc = q->pw[c&31];
 	for (i = 0; i < 2*q->n; i++)
 	{
-         if (q->x[i][b5]&pwb) q->x[i][c5] ^= pwc;
-         if (q->z[i][c5]&pwc) q->z[i][b5] ^= pwb;
-		 if ((q->x[i][b5]&pwb) && (q->z[i][c5]&pwc) &&
-			 (q->x[i][c5]&pwc) && (q->z[i][b5]&pwb))
+        if (q->x[i][b5]&pwb) q->x[i][c5] ^= pwc;
+        if (q->z[i][c5]&pwc) q->z[i][b5] ^= pwb;
+		if ((q->x[i][b5]&pwb) && (q->z[i][c5]&pwc) &&
+			(q->x[i][c5]&pwc) && (q->z[i][b5]&pwb))
 				q->r[i] = (q->r[i]+2)%4;
 		if ((q->x[i][b5]&pwb) && (q->z[i][c5]&pwc) &&
 			!(q->x[i][c5]&pwc) && !(q->z[i][b5]&pwb))

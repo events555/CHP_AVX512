@@ -61,6 +61,7 @@
     "iostream": "cpp",
     "fstream": "cpp",
     "iosfwd": "cpp",
-    "random": "cpp"
+    "random": "cpp",
+    "array": "cpp"
   }
 }
