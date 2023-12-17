@@ -37,7 +37,7 @@
       "program": "${workspaceFolder}/chp_multithread",
       "args": [
         "-t",
-        "test.chp"
+        "rand.chp"
       ],
       "stopAtEntry": false,
       "cwd": "${workspaceFolder}",

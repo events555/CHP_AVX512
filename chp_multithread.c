@@ -5,8 +5,7 @@
 
 // Thanks to Simon Anders and Andrew Cross for bugfixes
 
-
-
+#include <omp.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -87,6 +86,7 @@ void cnot(struct QState *q, long b, long c)
 	c5 = c>>5;
 	pwb = q->pw[b&31];
 	pwc = q->pw[c&31];
+    #pragma omp parallel for
 	for (i = 0; i < 2*q->n; i++)
 	{
         if (q->x[i][b5]&pwb) q->x[i][c5] ^= pwc;
@@ -118,6 +118,7 @@ void hadamard(struct QState *q, long b)
 
 	b5 = b>>5;
 	pw = q->pw[b&31];
+    #pragma omp parallel for
 	for (i = 0; i < 2*q->n; i++)
 	{
          tmp = q->x[i][b5];
@@ -144,6 +145,7 @@ void phase(struct QState *q, long b)
 
 	b5 = b>>5;
 	pw = q->pw[b&31];
+    #pragma omp parallel for
 	for (i = 0; i < 2*q->n; i++)
 	{
          if ((q->x[i][b5]&pw) && (q->z[i][b5]&pw)) q->r[i] = (q->r[i]+2)%4;
@@ -163,7 +165,7 @@ void rowcopy(struct QState *q, long i, long k)
 {
 
 	long j;
-
+    #pragma omp parallel for
 	for (j = 0; j < q->over32; j++)
 	{
          q->x[i][j] = q->x[k][j];
@@ -221,24 +223,18 @@ void rowset(struct QState *q, long i, long b)
          b31 = (b - q->n)&31;
          q->z[i][b5] = q->pw[b31];
 	}
-
 	return;
 
 }
 
 
-
 int clifford(struct QState *q, long i, long k)
-
 // Return the phase (0,1,2,3) when row i is LEFT-multiplied by row k
-
 {
-
 	long j;
 	long l;
 	unsigned long pw;
 	long e=0; // Power to which i is raised
-
 	for (j = 0; j < q->over32; j++)
          for (l = 0; l < 32; l++)
          {
@@ -259,14 +255,10 @@ int clifford(struct QState *q, long i, long k)
                          if ((q->x[i][j]&pw) && (q->z[i][j]&pw)) e--;         // ZY=-iX
                  }
          }
-
 	e = (e+q->r[i]+q->r[k])%4;
 	if (e>=0) return e;
          else return e+4;
-
 }
-
-
 
 void rowmult(struct QState *q, long i, long k)
 
@@ -277,6 +269,7 @@ void rowmult(struct QState *q, long i, long k)
 	long j;
 
 	q->r[i] = clifford(q,i,k);
+    #pragma omp parallel for
 	for (j = 0; j < q->over32; j++)
 	{
          q->x[i][j] ^= q->x[k][j];
@@ -286,46 +279,6 @@ void rowmult(struct QState *q, long i, long k)
 	return;
 
 }
-
-
-
-void printstate(struct QState *q)
-
-// Print the destabilizer and stabilizer for state q
-
-{
-
-	long i;
-	long j;
-	long j5;
-	unsigned long pw;
-
-	for (i = 0; i < 2*q->n; i++)
-	{
-         if (i == q->n)
-         {
-                 printf("\n");
-                 for (j = 0; j < q->n+1; j++)
-                         printf("-");
-         }
-         if (q->r[i]==2) printf("\n-");
-         else printf("\n+");
-         for (j = 0; j < q->n; j++)
-         {
-                 j5 = j>>5;
-                 pw = q->pw[j&31];
-                 if ((!(q->x[i][j5]&pw)) && (!(q->z[i][j5]&pw)))         printf("I");
-                 if ((q->x[i][j5]&pw) && (!(q->z[i][j5]&pw)))         printf("X");
-                 if ((q->x[i][j5]&pw) && (q->z[i][j5]&pw))                 printf("Y");
-                 if ((!(q->x[i][j5]&pw)) && (q->z[i][j5]&pw))         printf("Z");
-         }
-	}
-	printf("\n");
-
-	return;
-
-}
-
 
 
 int measure(struct QState *q, long b, int sup)
@@ -378,219 +331,11 @@ int measure(struct QState *q, long b, int sup)
                          rowmult(q, 2*q->n, i + q->n);
          if (q->r[2*q->n]) return 1;
          else return 0;
-         /*for (i = m+1; i < q->n; i++)
-                 if (q->x[i][b5]&pw)
-                 {
-                         rowmult(q, m + q->n, i + q->n);
-                         rowmult(q, i, m);
-                 }
-         return (int)q->r[m + q->n];*/
 	}
 
 	return 0;
 
 }
-
-
-
-long gaussian(struct QState *q)
-
-// Do Gaussian elimination to put the stabilizer generators in the following form:
-// At the top, a minimal set of generators containing X's and Y's, in "quasi-upper-triangular" form.
-// (Return value = number of such generators = log_2 of number of nonzero basis states)
-// At the bottom, generators containing Z's only in quasi-upper-triangular form.
-
-{
-
-	long i = q->n;
-	long k;
-	long k2;
-	long j;
-	long j5;
-	long g; // Return value
-	unsigned long pw;
-
-	for (j = 0; j < q->n; j++)
-	{
-         j5 = j>>5;
-         pw = q->pw[j&31];
-         for (k = i; k < 2*q->n; k++) // Find a generator containing X in jth column
-                 if (q->x[k][j5]&pw) break;
-         if (k < 2*q->n)
-         {
-                 rowswap(q, i, k);
-                 rowswap(q, i-q->n, k-q->n);
-                 for (k2 = i+1; k2 < 2*q->n; k2++)
-                         if (q->x[k2][j5]&pw)
-                         {
-                                 rowmult(q, k2, i);         // Gaussian elimination step
-                                 rowmult(q, i-q->n, k2-q->n);
-                         }
-                 i++;
-         }
-	}
-	g = i - q->n;
-
-	for (j = 0; j < q->n; j++)
-	{
-         j5 = j>>5;
-         pw = q->pw[j&31];
-         for (k = i; k < 2*q->n; k++) // Find a generator containing Z in jth column
-                 if (q->z[k][j5]&pw) break;
-         if (k < 2*q->n)
-         {
-                 rowswap(q, i, k);
-                 rowswap(q, i-q->n, k-q->n);
-                 for (k2 = i+1; k2 < 2*q->n; k2++)
-                         if (q->z[k2][j5]&pw)
-                         {
-                                 rowmult(q, k2, i);
-                                 rowmult(q, i-q->n, k2-q->n);
-                         }
-                 i++;
-         }
-	}
-
-	return g;
-
-}
-
-
-
-long innerprod(struct QState *q1, struct QState *q2)
-
-// Returns -1 if q1 and q2 are orthogonal
-// Otherwise, returns a nonnegative integer s such that the inner product is (1/sqrt(2))^s
-
-{
-
-	return 0;
-
-}
-
-
-
-void printbasisstate(struct QState *q)
-
-// Prints the result of applying the Pauli operator in the "scratch space" of q to |0...0>
-
-{
-
-	long j;
-	long j5;
-	unsigned long pw;
-	int e = q->r[2*q->n];
-
-	for (j = 0; j < q->n; j++)
-	{
-         j5 = j>>5;
-         pw = q->pw[j&31];
-         if ((q->x[2*q->n][j5]&pw) && (q->z[2*q->n][j5]&pw))         // Pauli operator is "Y"
-                 e = (e+1)%4;
-	}
-	if (e==0) printf("\n +|");
-	if (e==1) printf("\n+i|");
-	if (e==2) printf("\n -|");
-	if (e==3) printf("\n-i|");
-
-	for (j = 0; j < q->n; j++)
-	{
-         j5 = j>>5;
-         pw = q->pw[j&31];
-         if (q->x[2*q->n][j5]&pw) printf("1");
-                 else printf("0");
-	}
-	printf(">");
-
-	return;
-
-}
-
-
-
-void seed(struct QState *q, long g)
-
-// Finds a Pauli operator P such that the basis state P|0...0> occurs with nonzero amplitude in q, and
-// writes P to the scratch space of q.  For this to work, Gaussian elimination must already have been
-// performed on q.  g is the return value from gaussian(q).
-
-{
-
-	long i;
-	long j;
-	long j5;
-	unsigned long pw;
-	int f;
-	long min;
-
-	q->r[2*q->n] = 0;
-	for (j = 0; j < q->over32; j++)
-	{
-         q->x[2*q->n][j] = 0;         // Wipe the scratch space clean
-         q->z[2*q->n][j] = 0;
-	}
-	for (i = 2*q->n - 1; i >= q->n + g; i--)
-	{
-         f = q->r[i];
-         for (j = q->n - 1; j >= 0; j--)
-         {
-                 j5 = j>>5;
-                 pw = q->pw[j&31];
-                 if (q->z[i][j5]&pw)
-                 {
-                         min = j;
-                         if (q->x[2*q->n][j5]&pw) f = (f+2)%4;
-                 }
-         }
-         if (f==2)
-         {
-                 j5 = min>>5;
-                 pw = q->pw[min&31];
-                 q->x[2*q->n][j5] ^= pw;         // Make the seed consistent with the ith equation
-         }
-	}
-
-	return;
-
-}
-
-
-
-void printket(struct QState *q)
-
-// Print the state in ket notation (warning: could be huge!)
-
-{
-
-	long g;         // log_2 of number of nonzero basis states
-	unsigned long t;
-	unsigned long t2;
-	long i;
-
-	g = gaussian(q);
-	printf("\n2^%ld nonzero basis states", g);
-	if (g > 31)
-	{
-         printf("\nState is WAY too big to print");
-         return;
-	}
-
-	seed(q, g);
-	printbasisstate(q);
-	for (t = 0; t < q->pw[g]-1; t++)
-	{
-		t2 = t ^ (t+1);
-         for (i = 0; i < g; i++)
-                 if (t2 & q->pw[i])
-                         rowmult(q, 2*q->n, q->n + i);
-         printbasisstate(q);
-	}
-	printf("\n");
-
-	return;
-
-}
-
 
 
 void runprog(struct QProg *h, struct QState *q)

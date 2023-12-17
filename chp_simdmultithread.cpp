@@ -4,12 +4,12 @@
 #include <string>
 #include <vector>
 #include <immintrin.h>
+#include <bitset>
+#include <string.h>
 #include <sstream>
 #include <fstream>
 #include "quantum.cpp"
 #include "gates.cpp"
-#include <bitset>
-#include <string.h>
 //#include "tableau.cpp"
 
 #define         CNOT		0
@@ -18,23 +18,18 @@
 #define         MEASURE		3
 
 
-void print_m512i(__m512i var) {
-    uint64_t val[8];
-    _mm512_storeu_si512(val, var);
-    for (int i = 0; i < 8; i++) {
-        std::bitset<64> bits(val[i]);
-        std::cout << bits << std::endl;
-    }
-    std::cout << "\n";
-}
-void runprog(struct QProg *h, struct QState *q)
-
-// Simulate the quantum circuit
-
-{
+/**
+ * Runs the quantum program on the given quantum state.
+ * 
+ * @param h Pointer to the QProg structure representing the quantum program.
+ * @param q Pointer to the QState structure representing the quantum state.
+ */
+void runprog(struct QProg *h, struct QState *q) {
 
 	int m; // measurement result
 	char not_measured = 1;
+
+	auto start = std::chrono::high_resolution_clock::now(); // Start the timer
 
 	for (int t = 0; t < h->gate_count; t++)
 	{
@@ -55,18 +50,32 @@ void runprog(struct QProg *h, struct QState *q)
                  }
          }
 	}
-	printf("\n");
-	// if (h->DISPTIME)
-	// {
-    //      dt = difftime(time(0),tp);
-    //      printf("\nMeasurement time: %lf seconds", dt);
-    //      printf("\nTime per 10000 measurements: %lf seconds\n", dt*10000.0f/h->num_qubits);
-	// }
+
+	auto end = std::chrono::high_resolution_clock::now(); // Stop the timer
+	if (h->DISPTIME)
+	{
+        std::chrono::duration<double> duration = end - start;
+        double dt = duration.count();
+        std::cout << "\nMeasurement time: " << dt << " seconds" << std::endl;
+	}
 	return;
 
 }
 
+/**
+ * Applies quantum operations to prepare the state of a quantum system based on a given string.
+ * The operations applied depend on the characters in the string as follows:
+ * - 'Z': Applies a Hadamard gate, followed by two phase gates, and then another Hadamard gate.
+ * - 'x': Applies a Hadamard gate.
+ * - 'X': Applies a Hadamard gate, followed by two phase gates.
+ * - 'y': Applies a Hadamard gate, followed by a phase gate.
+ * - 'Y': Applies a Hadamard gate, followed by three phase gates.
+ *
+ * @param q A pointer to the quantum state structure.
+ * @param s The string representing the desired state preparation operations.
+ */
 void preparestate(struct QState *q, char *s) {
+    
 	int l = strlen(s);
 	for (int b = 0; b < l; b++)
 	{
@@ -110,39 +119,38 @@ void preparestate(struct QState *q, char *s) {
 void initialize_state(QState *q, int n, char *s)
 {
     q->num_qubits = n;
-    q->over512 = ((n + (512 - 1)) / 512) + 1;
-    q->x_bits = new __m512i * [(2 * n + 1)];
-    q->z_bits = new __m512i * [(2 * n + 1)];
-    q->phase = new int[2 * n + 1];
+    q->over512 = (n>>9) + 1;
+    q->x_bits.resize(2 * n + 1);
+    q->z_bits.resize(2 * n + 1);
+    q->phase.resize(2 * n + 1);
+    std::fill(q->phase.begin(), q->phase.end(), 0);
     q->pw[0] = 1;
     for (int i = 1; i < 32; i++)
         q->pw[i] = 2 * q->pw[i - 1];
     for (int i = 0; i < 2 * n + 1; i++) //Iterate through rows of tableau
     {
-        q->x_bits[i] = new __m512i[q->over512]; // Each row needs ceil(n/512) __m512i's to store the qubits
-        q->z_bits[i] = new __m512i[q->over512];
+        unsigned int array[16] = {0, 0, 0, 0, 0, 0, 0, 0,
+                                  0, 0, 0, 0, 0, 0, 0, 0};
+        q->x_bits[i].resize(q->over512); // Each row needs ceil(n/512) __m512i's to store the qubits
+        q->z_bits[i].resize(q->over512);
         for (int j = 0; j < q->over512; j++) // Example: 1024 qubits needs 2 __m512i's, initialize both to all 0's for particular row
         {
-            q->x_bits[i][j] = _mm512_set1_epi64(0);
-            q->z_bits[i][j] = _mm512_set1_epi64(0);
+            q->x_bits[i][j] = _mm512_setzero_si512();
+            q->z_bits[i][j] = _mm512_setzero_si512();
         }
         if (i < n) { // If you are in the destabilizers, set the x bit (top left of tableau)
             int col_index = i >> 9; // Calculate the row index in __m512i
-            int int_index = i >> 5; // Calculate the bit index within the __m512i
-            unsigned int array[16] = {0, 0, 0, 0, 0, 0, 0, 0,
-                             0, 0, 0, 0, 0, 0, 0, 0};
+            int int_index = (i & 511) >> 5; // Calculate the bit index within the __m512i
             array[int_index] = q->pw[i & 31];
             q->x_bits[i][col_index] = _mm512_loadu_si512(array);
-            //print_m512i(q->x_bits[i][col_index]);
+            array[int_index] = 0;
         }
         else if (i < 2 * n) { // If you are in the stabilizers, set the z bit (bottom right of tableau)
             int col_index = (i - n) >> 9; // Calculate the row index in __m512i
-            int int_index = (i-n)>>5; // Calculate the bit index within the __m512i
-            unsigned int array[16] = {0, 0, 0, 0, 0, 0, 0, 0,
-                             0, 0, 0, 0, 0, 0, 0, 0};
+            int int_index = ((i-n) & 511) >>5; // Calculate the bit index within the __m512i
             array[int_index] = q->pw[(i-n) & 31];
             q->z_bits[i][col_index] = _mm512_loadu_si512(array);
-            //print_m512i(q->z_bits[i][col_index]);
+            array[int_index] = 0;
         }
         q->phase[i] = 0;
     }
@@ -287,7 +295,7 @@ int main(int argc, char *argv[])
     QProg *program;
     QState *qubits;
     int param=0; // whether there are command-line parameters
-
+    //srand(time(0));
     std::cout << "\nCHP: Efficient Simulator for Stabilizer Quantum Circuits (multithreaded + AVX-512)";
     std::cout << "\nby Scott Aaronson, modified by Steven Nguyen\n";
     if (argc==1) std::cout<< "\nSyntax: chp [-options] <filename> [input]\n";
