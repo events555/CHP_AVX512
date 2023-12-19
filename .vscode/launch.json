@@ -5,10 +5,10 @@
       "name": "C/C++: g++ build and debug active file",
       "type": "cppdbg",
       "request": "launch",
-      "program": "${workspaceFolder}/chp_simdmultithread",
+      "program": "${workspaceFolder}/chp_simd",
       "args": [
         "-t",
-        "test.txt"
+        "test.chp"
       ],
       "stopAtEntry": false,
       "cwd": "${workspaceFolder}",
@@ -28,6 +28,35 @@
         }
       ],
       "preLaunchTask": "Compile with AVX-512",
+      "miDebuggerPath": "/usr/bin/gdb"
+    },
+    {
+      "name": "C/C++: g++ build and debug active file",
+      "type": "cppdbg",
+      "request": "launch",
+      "program": "${workspaceFolder}/chp_multithread",
+      "args": [
+        "-t",
+        "rand.chp"
+      ],
+      "stopAtEntry": false,
+      "cwd": "${workspaceFolder}",
+      "environment": [],
+      "externalConsole": false,
+      "MIMode": "gdb",
+      "setupCommands": [
+        {
+          "description": "Enable pretty-printing for gdb",
+          "text": "-enable-pretty-printing",
+          "ignoreFailures": true
+        },
+        {
+          "description": "Set Disassembly Flavor to Intel",
+          "text": "-gdb-set disassembly-flavor intel",
+          "ignoreFailures": true
+        }
+      ],
+      "preLaunchTask": "Compile with OpenMP",
       "miDebuggerPath": "/usr/bin/gdb"
     },
     {

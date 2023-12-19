@@ -19,10 +19,10 @@ struct QProg
 struct QState
 {
 	int num_qubits;         // # of qubits
-	__m512i **x_bits; // (2n+1)*n matrix for stabilizer/destabilizer x bits (there's one "scratch row" at
-	__m512i **z_bits; // (2n+1)*n matrix for z bits                                                 the bottom)
-	int *phase;         // Phase bits: 0 for +1, 1 for i, 2 for -1, 3 for -i.  Normally either 0 or 2.
+	std::vector<std::vector<__m512i>> x_bits; // (2n+1)*n matrix for stabilizer/destabilizer x bits (there's one "scratch row" at
+	std::vector<std::vector<__m512i>> z_bits; // (2n+1)*n matrix for z bits                                                 the bottom)
+	std::vector<int> phase;         // Phase bits: 0 for +1, 1 for i, 2 for -1, 3 for -i.  Normally either 0 or 2.
 	unsigned int pw[32]; // pw[i] = 2^i
-	int over512; // floor(n/8)+1
+	int over512; // floor(n/512)+1
 };
 #endif // QUANTUM_H
