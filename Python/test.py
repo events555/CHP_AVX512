@@ -3,7 +3,7 @@ import time
 from itertools import product
 
 from circuit import Circuit, QuditRegister
-from sympy import *
+from sympy import I, Matrix, N, arg, exp, eye, nsimplify, pi, pprint, re, simplify, sqrt
 from sympy.physics.quantum import TensorProduct
 from tableau import Program, Tableau
 

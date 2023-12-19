@@ -8,6 +8,7 @@
 #include <string.h>
 #include <sstream>
 #include <fstream>
+#include <ctime>
 #include "quantum.cpp"
 #include "gates.cpp"
 //#include "tableau.cpp"
@@ -26,13 +27,14 @@
  */
 void runprog(struct QProg *h, struct QState *q) {
 
-	int m; // measurement result
-	char not_measured = 1;
+    int m; // measurement result
+    char not_measured = 1;
 
-	auto start = std::chrono::high_resolution_clock::now(); // Start the timer
+    auto start_chrono = std::chrono::high_resolution_clock::now(); // Start the chrono timer
+    std::time_t start_c = std::time(nullptr); // Start the C timer
 
-	for (int t = 0; t < h->gate_count; t++)
-	{
+    for (int t = 0; t < h->gate_count; t++)
+    {
          if (h->op[t]==CNOT) cnot(q,h->control_qubit[t], h->target_qubit[t]);
          if (h->op[t]==HADAMARD) hadamard(q,h->control_qubit[t]);
          if (h->op[t]==PHASE) phase(q,h->control_qubit[t]);
@@ -49,16 +51,20 @@ void runprog(struct QProg *h, struct QState *q) {
                         std::cout << m;
                  }
          }
-	}
+    }
 
-	auto end = std::chrono::high_resolution_clock::now(); // Stop the timer
-	if (h->DISPTIME)
-	{
-        std::chrono::duration<double> duration = end - start;
-        double dt = duration.count();
-        std::cout << "\nMeasurement time: " << dt << " seconds" << std::endl;
-	}
-	return;
+    auto end_chrono = std::chrono::high_resolution_clock::now(); // Stop the chrono timer
+    std::time_t end_c = std::time(nullptr); // Stop the C timer
+
+    if (h->DISPTIME)
+    {
+        std::chrono::duration<double> duration_chrono = end_chrono - start_chrono;
+        double dt_chrono = duration_chrono.count();
+        double dt_c = std::difftime(end_c, start_c);
+        std::cout << "\nMeasurement time (chrono): " << dt_chrono << " seconds" << std::endl;
+        std::cout << "\nMeasurement time (C): " << dt_c << " seconds" << std::endl;
+    }
+    return;
 
 }
 
