@@ -1,73 +1,34 @@
-import re
+from gatedata import GateData
 
 
-class QuditRegister:
-    def __init__(self, name, dimension, num_qudits):
-        self.name = name
-        self.dimension = dimension
-        self.num_qudits = num_qudits
-        self.pauli_product = ["I" for _ in range(num_qudits)]
-
-    def __getitem__(self, index):
-        return self.pauli_product[index]
+class CircuitInstruction:
+    def __init__(self, gate_name, qudit_index, gate_data, target_index=None):
+        self.qudit_index = qudit_index
+        self.target_index = target_index
+        gate_id = gate_data.gateDataMap[gate_name].gate_id
+        if gate_id is None:
+            raise ValueError(f"Gate {gate_name} not found")
+        self.gate_id = gate_id
 
     def __str__(self):
-        tensor_product = "\u2297 ".join(self.pauli_product)
-        return f"{self.name}: {tensor_product}"
-
-    def set(self, pauli, index=None):
-        if index is None:
-            pauli_split = pauli.split()
-            for i in range(self.num_qudits):
-                self.pauli_product[i] = pauli_split[i]
-                simplified = self.simplify_string(self.pauli_product[i], self.dimension)
-                if simplified is not None:
-                    self.pauli_product[i] = simplified
-        else:
-            self.pauli_product[index] = pauli
-            simplified = self.simplify_string(self.pauli_product[index], self.dimension)
-            if simplified is not None:
-                self.pauli_product[index] = simplified
-
-    def simplify_string(self, s, d):
-        s = re.sub("X" * d, "" if len(s) > d else "I", s)
-        s = re.sub("Z" * d, "" if len(s) > d else "I", s)
-        if "X" in s or "Z" in s:
-            s = re.sub("I", "", s)
-        return s
-
-
-class Gate:
-    def __init__(self, name, qudit, target=None):
-        self.name = name
-        self.qudit_index = qudit
-        self.qudit_target_index = target
+        return f"{self.gate_id} {self.qudit_index} {self.target_index}"
 
 
 class Circuit:
-    def __init__(self, qudit_register):
-        self.qudit_register = qudit_register
-        self.gates = []
+    def __init__(self, num_qudits, dimension=2):
+        self.operations = []
+        self.num_qudits = num_qudits
+        self.dimension = dimension
+        self.gate_data = GateData(dimension)
 
     def add_gate(self, gate_name, qudit_index, target_index=None):
-        if gate_name not in ["R", "P", "SUM", "MEASURE"]:
-            raise ValueError(f"Invalid gate: {gate_name}")
-        elif gate_name == "SUM" and target_index not in range(
-            self.qudit_register.num_qudits
-        ):
-            raise ValueError(f"Invalid target index: {target_index}")
-        elif qudit_index not in range(self.qudit_register.num_qudits):
-            raise ValueError(f"Invalid qudit index: {qudit_index}")
-        gate = Gate(gate_name, qudit_index, target_index)
-        self.gates.append(gate)
+        """
+        Add a CircuitInstruction to list operations after finding ID from GateData
+        CircuitInstruction contains qubit_index, target_index, and gate_id
+        """
+        self.operations.append(
+            CircuitInstruction(gate_name, qudit_index, self.gate_data, target_index)
+        )
 
     def __str__(self):
-        gate_list = []
-        for gate in self.gates:
-            gate_str = "Gate: {:<3} | Qudit Index: {}".format(
-                gate.name, gate.qudit_index
-            )
-            if gate.qudit_target_index is not None:
-                gate_str += " Target Index: {}".format(gate.qudit_target_index)
-            gate_list.append(gate_str)
-        return "\n".join(gate_list)
+        return "\n".join(str(op) for op in self.operations)

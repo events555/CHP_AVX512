@@ -89,11 +89,13 @@ def statevec_test(
     trials=1,
     num_qudits=2,
     num_gates=2,
-    seed=int(time.time()),
+    seed=None,
     print_circuit=False,
     print_statevec=False,
     print_stabilizer=False,
 ):
+    if seed is None:
+        seed = int(time.time())
     """
     Perform a statevector comparison on a random quantum circuit and equivalent tableau.
 
@@ -180,6 +182,3 @@ def statevec_test(
                 raise Exception(
                     f"Trial {trial} was not stabilized at index {i} of statevector. Seed: {seed}"
                 )
-
-
-statevec_test(5, 1, 3, 5, seed=1702589381, print_circuit=True)
