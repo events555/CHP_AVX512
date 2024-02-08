@@ -1,125 +1,77 @@
-from circuit import Circuit, QuditRegister
+from paulistring import PauliString
+from tableau_simulator import apply_gate as apply_gate
 
 
 class Tableau:
-    def __init__(self, dimension, num_qudits):
-        self.dimension = dimension
+    def __init__(self, num_qudits, dimension=2):
         self.num_qudits = num_qudits
-        self.tableau = [
-            QuditRegister("Destabilizer %d" % i, dimension, num_qudits)
-            for i in range(num_qudits)
+        self.dimension = dimension
+        self.xlogical = [
+            PauliString(num_qudits, dimension=dimension) for _ in range(num_qudits)
         ]
-        self.tableau.extend(
-            [
-                QuditRegister("Stabilizer %d" % i, dimension, num_qudits)
-                for i in range(num_qudits)
-            ]
-        )
-        self.phase = [0 for _ in range(2 * num_qudits)]
-        for i in range(num_qudits):
-            s = ["I"] * num_qudits  # Start with a list of 'I's
-            s[i] = "X"  # Replace the i-th element with 'X'
-            self.tableau[i].set(" ".join(s))
-            s[i] = "Z"
-            self.tableau[i + num_qudits].set(" ".join(s))
+        self.zlogical = [
+            PauliString(num_qudits, dimension=dimension) for _ in range(num_qudits)
+        ]
 
     def __str__(self):
-        return "\n".join(
-            [
-                f"{str(qudit_register)} Phase: {self.phase[i]}"
-                for i, qudit_register in enumerate(self.tableau)
-            ]
-        )
+        xlogical_str = ", ".join(str(ps) for ps in self.xlogical)
+        zlogical_str = ", ".join(str(ps) for ps in self.zlogical)
+        return f"X-Logical: [{xlogical_str}]\nZ-Logical: [{zlogical_str}]"
 
-    def __getitem__(self, index):
-        return self.tableau[index]
+    def print_tableau_num(self):
+        print("X-Logical:")
+        for ps in self.xlogical:
+            row = [f"{xpow} {zpow}" for xpow, zpow in zip(ps.xpow, ps.zpow)]
+            print("\t".join(row))
+        print("Z-Logical:")
+        for ps in self.zlogical:
+            row = [f"{xpow} {zpow}" for xpow, zpow in zip(ps.xpow, ps.zpow)]
+            print("\t".join(row))
 
-    def conjugate(self, qudit_index, qudit_target_index, gate, stabilizer):
-        # Conjugate's According to Gottesman's Higher Dimensional Mappings
-        # https://arxiv.org/abs/quant-ph/9802007
+    def identity(self):
+        """
+        Creates a Tableau representing the identity operator.
+        """
+        for i in range(self.num_qudits):
+            self.xlogical[i][i] = "X"
+            self.zlogical[i][i] = "Z"
 
-        if qudit_target_index == None:
-            if gate == "R":
-                replacements = {"X": "Z", "Z": "X" * (self.dimension - 1)}
-                stabilizer.set(
-                    "".join(
-                        [
-                            replacements.get(c, c)
-                            for c in stabilizer.pauli_product[qudit_index]
-                        ]
-                    ),
-                    qudit_index,
-                )
-            elif gate == "P":
-                replacements = {"X": "XZ", "Z": "Z"}
-                stabilizer.set(
-                    "".join(
-                        [
-                            replacements.get(c, c)
-                            for c in stabilizer.pauli_product[qudit_index]
-                        ]
-                    ),
-                    qudit_index,
-                )
-        elif qudit_target_index != None:
-            if gate == "SUM":
-                control_string = stabilizer.pauli_product[qudit_index]
-                target_string = stabilizer.pauli_product[qudit_target_index]
-                x_count = control_string.count("X")
-                z_count = target_string.count("Z")
-                target_string += "X" * x_count
-                control_string += "Z" * z_count * (self.dimension - 1)
-                stabilizer.set(control_string, qudit_index)
-                stabilizer.set(target_string, qudit_target_index)
-        else:
-            raise ValueError(f"No targets specified.")
+    def gate1(self, xmap, zmap):
+        """
+        Creates a Tableau representing a single qudit gate.
+        Args:
+            xmap: The output-side observable assuming the input-side is the logical X operator
+            zmap: The output-side observable assuming the input-side is the logical Z operator
+        """
+        self.xlogical[0] = str(xmap)
+        self.zlogical[0] = str(zmap)
+        return self
 
-    def check_commute(self, stab1, stab2):
-        # Check if two stabilizers commute
-        pauli1 = stab1.pauli_product
-        pauli2 = stab2.pauli_product
-        num_yx_or_zx_pairs = sum(
-            (p1 == "XZ" or (p1 == "X" and p2 == "Z") or (p1 == "Z" and p2 == "X"))
-            for p1, p2 in zip(pauli1, pauli2)
-        )
-        return num_yx_or_zx_pairs % 2 == 0
+    def gate2(self, xmap, zmap):
+        """
+        Creates a Tableau representing a two-qudit gate.
+        Args:
+            xmap: The output-side observable assuming the input-side is the logical X operator
+            zmap: The output-side observable assuming the input-side is the logical Z operator
+        """
+        self.xlogical = [PauliString(self.num_qudits, x) for x in xmap]
+        self.zlogical = [PauliString(self.num_qudits, z) for z in zmap]
 
 
 class Program:
-    def __init__(self, tableau, circuit):
-        self.stabilizer_tableau = tableau
-        self.num_qudits = tableau.num_qudits
+    def __init__(self, circuit, tableau=None):
+        if tableau is None:
+            self.stabilizer_tableau = Tableau(circuit.num_qudits, circuit.dimension)
+            self.stabilizer_tableau.identity()
+        else:
+            self.stabilizer_tableau = tableau
         self.circuit = circuit
 
     def simulate(self):
-        for gate in self.circuit.gates:
-            if gate.name == "MEASURE":
-                for stabilizer in self.stabilizer_tableau.tableau[
-                    self.num_qudits :
-                ]:  # Only iterate over stabilizers
-                    if stabilizer.pauli_product[gate.qudit_index] == "Z":
-                        stabilizer.set("I", gate.qudit_index)
-            else:
-                for stabilizer in self.stabilizer_tableau.tableau:
-                    self.stabilizer_tableau.conjugate(
-                        gate.qudit_index, gate.qudit_target_index, gate.name, stabilizer
-                    )
-
-    def get_stabilizer(self, row):
-        return self.stabilizer_tableau[row]
-
-
-# table = Tableau(3, 2)
-# qudit_register = QuditRegister("Qudit Register", 3, 2)
-# circuit = Circuit(qudit_register)
-# circuit.add_gate("R", 0)
-# circuit.add_gate("SUM", 0, 1)
-# print(circuit)
-
-# program = Program(table, circuit)
-# print(table)
-
-# print("\nAfter simulation:")
-# program.simulate()
-# print(table)
-# Revelation... page 3 of Gottesman paper says that XZ has order 2d for d=2 so it needs a factor of i, but d=odd does not
+        for time, gate in enumerate(self.circuit.operations):
+            print("Time step", time)
+            self.stabilizer_tableau.print_tableau_num()
+            self.stabilizer_tableau = apply_gate(self.stabilizer_tableau, gate)
+            print("\n")
+        print("Final state")
+        self.stabilizer_tableau.print_tableau_num()
