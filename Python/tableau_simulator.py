@@ -25,8 +25,13 @@ def apply_gate(tableau, instruc):
 def apply_H(tableau, qudit_index):
     """
     Apply H gate to qudit at qudit_index
+    Iterates through every row of the tableau and swaps the x and z powers of the qudit at qudit_index
     """
     for i in range(tableau.num_qudits):
+        # i represents the row, qudit_index represents the column
+        # x logical are all the logical X generators (destabilizers in CHP)
+        # z logical are all the logical Z generators (stabilizers in CHP)
+        # stabilizers references to it's effect on the |000...0> state
         tempx = tableau.xlogical[i].xpow[qudit_index]
         tableau.xlogical[i].xpow[qudit_index] = tableau.xlogical[i].zpow[qudit_index]
         tableau.xlogical[i].zpow[qudit_index] = tempx
@@ -39,6 +44,7 @@ def apply_H(tableau, qudit_index):
 def apply_P(tableau, qudit_index):
     """
     Apply P gate to qudit at qudit_index
+    Iterates through every row of the tableau and adds the x and z powers to the qudit's zpow
     """
     for i in range(tableau.num_qudits):
         tableau.xlogical[i].zpow[qudit_index] = (
