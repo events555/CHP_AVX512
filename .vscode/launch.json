@@ -66,8 +66,8 @@
       "args": [],
       "stopAtEntry": false,
       "externalConsole": false,
-      "cwd": "/home/stevenn/projects/Qutrits",
-      "program": "/home/stevenn/projects/Qutrits/build/Debug/outDebug",
+      "cwd": "/home/stevenn/projects/Qutrits/src",
+      "program": "/home/stevenn/projects/Qutrits/src/build/Debug/outDebug",
       "MIMode": "gdb",
       "miDebuggerPath": "gdb",
       "setupCommands": [
