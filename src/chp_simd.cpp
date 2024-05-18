@@ -249,7 +249,7 @@ void readprog(QProg *h, std::string fn, std::string params)
     h->op.resize(h->gate_count);
     h->control_qubit.resize(h->gate_count);
     h->target_qubit.resize(h->gate_count);
-    fp.open(fn);
+    fp.open(fullPath);
     char c;
     while (!fp.eof()&&(c!='#'))
         fp >> c;
